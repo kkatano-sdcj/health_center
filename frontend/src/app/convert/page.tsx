@@ -312,6 +312,7 @@ export default function ConvertPage() {
             useAiMode={useAiMode}
             onAiModeChange={setUseAiMode}
             progress={progress}
+            progressData={progressData}
             onCancel={handleCancel}
           />
         </div>

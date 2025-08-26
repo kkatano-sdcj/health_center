@@ -3,6 +3,7 @@ import { useDropzone } from 'react-dropzone';
 import './FileUploader.css';
 import { getSupportedFormats } from '@/services/api';
 import ProgressBar from './ProgressBar';
+import MultiFileProgressBar from './MultiFileProgressBar';
 
 interface FileUploaderProps {
   onFilesSelect: (files: File[]) => void;
@@ -11,6 +12,7 @@ interface FileUploaderProps {
   useAiMode?: boolean;
   onAiModeChange?: (enabled: boolean) => void;
   progress?: any;
+  progressData?: Record<string, any>;  // 複数ファイルの進捗データ
   onCancel?: () => void;
 }
 
@@ -21,6 +23,7 @@ const FileUploader: React.FC<FileUploaderProps> = ({
   useAiMode = false,
   onAiModeChange,
   progress,
+  progressData,
   onCancel 
 }) => {
   const [selectedFiles, setSelectedFiles] = useState<File[]>([]);
@@ -34,7 +37,8 @@ const FileUploader: React.FC<FileUploaderProps> = ({
   }, []);
 
   const onDrop = useCallback((acceptedFiles: File[]) => {
-    setSelectedFiles(acceptedFiles);
+    // 既存のファイルに新しいファイルを追加
+    setSelectedFiles(prevFiles => [...prevFiles, ...acceptedFiles]);
     setUrlMode(false);
   }, []);
 
@@ -69,6 +73,7 @@ const FileUploader: React.FC<FileUploaderProps> = ({
     onDrop,
     accept: mimeTypeMap,
     disabled: false,
+    multiple: true,  // 複数ファイルの選択を明示的に許可
   });
 
   useEffect(() => {
@@ -158,6 +163,7 @@ const FileUploader: React.FC<FileUploaderProps> = ({
           ) : (
             <div>
               <p>ファイルをドラッグ＆ドロップ、またはクリックして選択</p>
+              <p className="info-text">複数ファイルを選択できます</p>
               <p className="supported-formats">
                 対応形式: {supportedFormats.map(f => `.${f}`).join(', ')}
               </p>
@@ -189,11 +195,11 @@ const FileUploader: React.FC<FileUploaderProps> = ({
 
       {selectedFiles.length > 0 && (
         <div className="selected-files">
-          <h3>選択されたファイル:</h3>
+          <h3>選択されたファイル ({selectedFiles.length}個):</h3>
           <ul>
             {selectedFiles.map((file, index) => (
               <li key={index}>
-                <span>{file.name}</span>
+                <span>{file.name} ({(file.size / 1024 / 1024).toFixed(2)} MB)</span>
                 <button
                   onClick={() => removeFile(index)}
                   disabled={isConverting}
@@ -212,21 +218,29 @@ const FileUploader: React.FC<FileUploaderProps> = ({
                 disabled={selectedFiles.length === 0}
                 className="px-4 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700 disabled:bg-gray-400"
               >
-                ファイルを変換
+                {selectedFiles.length === 1 ? 'ファイルを変換' : `${selectedFiles.length}個のファイルを変換`}
               </button>
             </div>
           )}
           
-          {progress && isConverting && (
+          {isConverting && (
             <div className="file-progress-container">
-              <ProgressBar
-                progress={progress.progress || 0}
-                status={progress.status || 'processing'}
-                fileName={progress.file_name}
-                currentStep={progress.current_step}
-                onCancel={onCancel}
-                showCancelButton={true}
-              />
+              {selectedFiles.length > 1 && progressData ? (
+                <MultiFileProgressBar
+                  files={selectedFiles}
+                  progressData={progressData}
+                  onCancel={onCancel}
+                />
+              ) : progress ? (
+                <ProgressBar
+                  progress={progress.progress || 0}
+                  status={progress.status || 'processing'}
+                  fileName={progress.file_name}
+                  currentStep={progress.current_step}
+                  onCancel={onCancel}
+                  showCancelButton={true}
+                />
+              ) : null}
             </div>
           )}
         </div>
