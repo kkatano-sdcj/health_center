@@ -1,0 +1,549 @@
+<!DOCTYPE html>
+<html lang="ja" class="dark">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>KnowledgeBot Dashboard - Next Generation AI Interface</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script src="https://unpkg.com/alpinejs@3.x.x/dist/cdn.min.js" defer></script>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800;900&display=swap" rel="stylesheet">
+    <script>
+        tailwind.config = {
+            darkMode: 'class',
+            theme: {
+                extend: {
+                    fontFamily: {
+                        'inter': ['Inter', 'sans-serif'],
+                    },
+                    animation: {
+                        'gradient': 'gradient 8s linear infinite',
+                        'float': 'float 6s ease-in-out infinite',
+                        'pulse-slow': 'pulse 4s cubic-bezier(0.4, 0, 0.6, 1) infinite',
+                        'slide-up': 'slideUp 0.5s ease-out',
+                        'glow': 'glow 2s ease-in-out infinite alternate',
+                        'spin-slow': 'spin 8s linear infinite',
+                    },
+                    keyframes: {
+                        gradient: {
+                            '0%, 100%': {
+                                'background-size': '200% 200%',
+                                'background-position': 'left center'
+                            },
+                            '50%': {
+                                'background-size': '200% 200%',
+                                'background-position': 'right center'
+                            }
+                        },
+                        float: {
+                            '0%, 100%': { transform: 'translateY(0px)' },
+                            '50%': { transform: 'translateY(-20px)' }
+                        },
+                        slideUp: {
+                            '0%': { transform: 'translateY(10px)', opacity: 0 },
+                            '100%': { transform: 'translateY(0)', opacity: 1 }
+                        },
+                        glow: {
+                            '0%': { 'box-shadow': '0 0 5px rgb(147, 51, 234), 0 0 10px rgb(147, 51, 234)' },
+                            '100%': { 'box-shadow': '0 0 20px rgb(147, 51, 234), 0 0 30px rgb(147, 51, 234)' }
+                        }
+                    }
+                }
+            }
+        }
+    </script>
+    <style>
+        body { font-family: 'Inter', sans-serif; }
+        
+        .bg-gradient-animated {
+            background: linear-gradient(-45deg, #7c3aed, #2563eb, #7c3aed, #ec4899);
+            background-size: 400% 400%;
+            animation: gradient 15s ease infinite;
+        }
+        
+        .glass-morphism {
+            background: rgba(255, 255, 255, 0.05);
+            backdrop-filter: blur(10px);
+            border: 1px solid rgba(255, 255, 255, 0.1);
+        }
+        
+        .neon-border {
+            box-shadow: 0 0 5px theme('colors.purple.400'),
+                        0 0 20px theme('colors.purple.600'),
+                        inset 0 0 5px theme('colors.purple.400');
+        }
+        
+        .cyber-grid {
+            background-image: linear-gradient(rgba(147, 51, 234, 0.1) 1px, transparent 1px),
+                              linear-gradient(90deg, rgba(147, 51, 234, 0.1) 1px, transparent 1px);
+            background-size: 50px 50px;
+        }
+        
+        .holographic {
+            background: linear-gradient(45deg, #ff0080, #ff8c00, #40e0d0, #ff0080);
+            background-size: 400% 400%;
+            animation: gradient 3s ease infinite;
+        }
+        
+        .text-gradient {
+            background: linear-gradient(to right, #7c3aed, #ec4899, #2563eb);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+            background-clip: text;
+        }
+        
+        .hover-lift {
+            transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+        }
+        
+        .hover-lift:hover {
+            transform: translateY(-4px) scale(1.02);
+            box-shadow: 0 20px 40px rgba(147, 51, 234, 0.3);
+        }
+        
+        ::-webkit-scrollbar {
+            width: 8px;
+            height: 8px;
+        }
+        
+        ::-webkit-scrollbar-track {
+            background: rgba(147, 51, 234, 0.1);
+        }
+        
+        ::-webkit-scrollbar-thumb {
+            background: linear-gradient(to bottom, #7c3aed, #ec4899);
+            border-radius: 4px;
+        }
+        
+        .matrix-rain {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            pointer-events: none;
+            opacity: 0.05;
+            z-index: 1;
+        }
+        
+        @keyframes matrix-fall {
+            to {
+                transform: translateY(100vh);
+            }
+        }
+        
+        .matrix-column {
+            position: absolute;
+            top: -100vh;
+            font-family: monospace;
+            font-size: 14px;
+            color: #7c3aed;
+            animation: matrix-fall 10s linear infinite;
+        }
+    </style>
+</head>
+<body class="bg-gray-950 text-gray-100 overflow-x-hidden">
+    <div class="matrix-rain" id="matrix"></div>
+    
+    <!-- Advanced Navigation -->
+    <nav class="fixed top-0 left-0 right-0 z-50 glass-morphism border-b border-purple-500/20">
+        <div class="container mx-auto px-6 py-4">
+            <div class="flex items-center justify-between">
+                <div class="flex items-center space-x-4">
+                    <div class="relative">
+                        <div class="absolute inset-0 bg-purple-600 blur-xl animate-pulse-slow"></div>
+                        <div class="relative bg-gradient-to-br from-purple-600 to-pink-600 p-3 rounded-xl">
+                            <svg class="w-8 h-8 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9.75 17L9 20l-1 1h8l-1-1-.75-3M3 13h18M5 17h14a2 2 0 002-2V5a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z"></path>
+                            </svg>
+                        </div>
+                    </div>
+                    <div>
+                        <h1 class="text-2xl font-bold text-gradient">KnowledgeBot</h1>
+                        <p class="text-xs text-purple-400">Quantum Dashboard v3.0</p>
+                    </div>
+                </div>
+                <div class="flex items-center space-x-6">
+                    <button class="relative p-2 hover:bg-purple-500/10 rounded-lg transition-all">
+                        <div class="absolute top-0 right-0 w-2 h-2 bg-pink-500 rounded-full animate-pulse"></div>
+                        <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 17h5l-1.405-1.405A2.032 2.032 0 0118 14.158V11a6.002 6.002 0 00-4-5.659V5a2 2 0 10-4 0v.341C7.67 6.165 6 8.388 6 11v3.159c0 .538-.214 1.055-.595 1.436L4 17h5m6 0v1a3 3 0 11-6 0v-1m6 0H9"></path>
+                        </svg>
+                    </button>
+                    <div class="flex items-center space-x-3">
+                        <div class="text-right">
+                            <p class="text-sm font-medium">Admin User</p>
+                            <p class="text-xs text-purple-400">Level 99</p>
+                        </div>
+                        <div class="relative">
+                            <div class="absolute inset-0 bg-gradient-to-br from-purple-600 to-pink-600 rounded-full blur animate-pulse-slow"></div>
+                            <img src="https://ui-avatars.com/api/?name=Admin&background=7c3aed&color=fff" alt="Avatar" class="relative w-10 h-10 rounded-full border-2 border-purple-500">
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </nav>
+
+    <!-- Main Dashboard -->
+    <div class="pt-24 pb-10 min-h-screen cyber-grid relative z-10">
+        <div class="container mx-auto px-6">
+            <!-- Stats Cards -->
+            <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-8">
+                <div class="glass-morphism rounded-2xl p-6 hover-lift relative overflow-hidden">
+                    <div class="absolute top-0 right-0 w-32 h-32 bg-purple-600 rounded-full filter blur-3xl opacity-20 animate-pulse-slow"></div>
+                    <div class="relative">
+                        <div class="flex items-center justify-between mb-4">
+                            <div class="p-3 bg-purple-600/20 rounded-xl">
+                                <svg class="w-6 h-6 text-purple-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 12h.01M12 12h.01M16 12h.01M21 12c0 4.418-4.03 8-9 8a9.863 9.863 0 01-4.255-.949L3 20l1.395-3.72C3.512 15.042 3 13.574 3 12c0-4.418 4.03-8 9-8s9 3.582 9 8z"></path>
+                                </svg>
+                            </div>
+                            <span class="text-xs text-green-400 font-medium">+12.5%</span>
+                        </div>
+                        <h3 class="text-3xl font-bold mb-1">89,432</h3>
+                        <p class="text-sm text-gray-400">Total Conversations</p>
+                    </div>
+                </div>
+
+                <div class="glass-morphism rounded-2xl p-6 hover-lift relative overflow-hidden">
+                    <div class="absolute top-0 right-0 w-32 h-32 bg-blue-600 rounded-full filter blur-3xl opacity-20 animate-pulse-slow"></div>
+                    <div class="relative">
+                        <div class="flex items-center justify-between mb-4">
+                            <div class="p-3 bg-blue-600/20 rounded-xl">
+                                <svg class="w-6 h-6 text-blue-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 10V3L4 14h7v7l9-11h-7z"></path>
+                                </svg>
+                            </div>
+                            <span class="text-xs text-green-400 font-medium">+8.2%</span>
+                        </div>
+                        <h3 class="text-3xl font-bold mb-1">0.23s</h3>
+                        <p class="text-sm text-gray-400">Avg Response Time</p>
+                    </div>
+                </div>
+
+                <div class="glass-morphism rounded-2xl p-6 hover-lift relative overflow-hidden">
+                    <div class="absolute top-0 right-0 w-32 h-32 bg-pink-600 rounded-full filter blur-3xl opacity-20 animate-pulse-slow"></div>
+                    <div class="relative">
+                        <div class="flex items-center justify-between mb-4">
+                            <div class="p-3 bg-pink-600/20 rounded-xl">
+                                <svg class="w-6 h-6 text-pink-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4.318 6.318a4.5 4.5 0 000 6.364L12 20.364l7.682-7.682a4.5 4.5 0 00-6.364-6.364L12 7.636l-1.318-1.318a4.5 4.5 0 00-6.364 0z"></path>
+                                </svg>
+                            </div>
+                            <span class="text-xs text-green-400 font-medium">+15.3%</span>
+                        </div>
+                        <h3 class="text-3xl font-bold mb-1">98.7%</h3>
+                        <p class="text-sm text-gray-400">Satisfaction Rate</p>
+                    </div>
+                </div>
+
+                <div class="glass-morphism rounded-2xl p-6 hover-lift relative overflow-hidden">
+                    <div class="absolute top-0 right-0 w-32 h-32 bg-green-600 rounded-full filter blur-3xl opacity-20 animate-pulse-slow"></div>
+                    <div class="relative">
+                        <div class="flex items-center justify-between mb-4">
+                            <div class="p-3 bg-green-600/20 rounded-xl">
+                                <svg class="w-6 h-6 text-green-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4m5.618-4.016A11.955 11.955 0 0112 2.944a11.955 11.955 0 01-8.618 3.04A12.02 12.02 0 003 9c0 5.591 3.824 10.29 9 11.622 5.176-1.332 9-6.03 9-11.622 0-1.042-.133-2.052-.382-3.016z"></path>
+                                </svg>
+                            </div>
+                            <span class="text-xs text-green-400 font-medium">Secure</span>
+                        </div>
+                        <h3 class="text-3xl font-bold mb-1">256-bit</h3>
+                        <p class="text-sm text-gray-400">Encryption Level</p>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Main Content Area -->
+            <div class="grid grid-cols-1 lg:grid-cols-3 gap-6">
+                <!-- Chat Interface -->
+                <div class="lg:col-span-2 glass-morphism rounded-2xl p-6 relative overflow-hidden">
+                    <div class="absolute inset-0 bg-gradient-to-br from-purple-900/20 to-pink-900/20 animate-gradient"></div>
+                    <div class="relative">
+                        <div class="flex items-center justify-between mb-6">
+                            <h2 class="text-xl font-bold flex items-center">
+                                <span class="relative">
+                                    <span class="absolute inset-0 bg-green-500 rounded-full animate-ping"></span>
+                                    <span class="relative block w-3 h-3 bg-green-500 rounded-full"></span>
+                                </span>
+                                <span class="ml-3">Live Chat Interface</span>
+                            </h2>
+                            <div class="flex items-center space-x-2">
+                                <button class="p-2 hover:bg-purple-500/10 rounded-lg transition-all">
+                                    <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10.325 4.317c.426-1.756 2.924-1.756 3.35 0a1.724 1.724 0 002.573 1.066c1.543-.94 3.31.826 2.37 2.37a1.724 1.724 0 001.065 2.572c1.756.426 1.756 2.924 0 3.35a1.724 1.724 0 00-1.066 2.573c.94 1.543-.826 3.31-2.37 2.37a1.724 1.724 0 00-2.572 1.065c-.426 1.756-2.924 1.756-3.35 0a1.724 1.724 0 00-2.573-1.066c-1.543.94-3.31-.826-2.37-2.37a1.724 1.724 0 00-1.065-2.572c-1.756-.426-1.756-2.924 0-3.35a1.724 1.724 0 001.066-2.573c-.94-1.543.826-3.31 2.37-2.37.996.608 2.296.07 2.572-1.065z"></path>
+                                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z"></path>
+                                    </svg>
+                                </button>
+                            </div>
+                        </div>
+                        
+                        <div class="h-96 overflow-y-auto space-y-4 mb-4 pr-2">
+                            <div class="flex items-start space-x-3">
+                                <div class="w-8 h-8 rounded-full bg-gradient-to-br from-blue-600 to-purple-600 flex items-center justify-center text-xs font-bold">U</div>
+                                <div class="flex-1">
+                                    <div class="bg-gray-800/50 rounded-2xl rounded-tl-none p-4 max-w-sm">
+                                        <p class="text-sm">新製品の技術仕様書について教えてください</p>
+                                    </div>
+                                    <p class="text-xs text-gray-500 mt-1">14:23</p>
+                                </div>
+                            </div>
+                            
+                            <div class="flex items-start space-x-3 justify-end">
+                                <div class="flex-1 text-right">
+                                    <div class="bg-gradient-to-br from-purple-600/20 to-pink-600/20 rounded-2xl rounded-tr-none p-4 max-w-md ml-auto border border-purple-500/30">
+                                        <p class="text-sm mb-3">新製品の技術仕様書についてご案内します：</p>
+                                        <div class="space-y-2">
+                                            <div class="flex items-center justify-between p-2 bg-purple-900/30 rounded-lg">
+                                                <span class="text-xs">製品型番: KN-2024X</span>
+                                                <span class="text-xs text-purple-400">v3.2.1</span>
+                                            </div>
+                                            <div class="flex items-center justify-between p-2 bg-purple-900/30 rounded-lg">
+                                                <span class="text-xs">最終更新: 2024/01/15</span>
+                                                <span class="text-xs text-green-400">Available</span>
+                                            </div>
+                                        </div>
+                                        <button class="mt-3 w-full py-2 bg-gradient-to-r from-purple-600 to-pink-600 rounded-lg text-sm font-medium hover:opacity-90 transition-opacity">
+                                            ドキュメントを開く
+                                        </button>
+                                    </div>
+                                    <p class="text-xs text-gray-500 mt-1">14:23</p>
+                                </div>
+                                <div class="w-8 h-8 rounded-full bg-gradient-to-br from-purple-600 to-pink-600 flex items-center justify-center">
+                                    <svg class="w-5 h-5" fill="currentColor" viewBox="0 0 20 20">
+                                        <path d="M2 5a2 2 0 012-2h7a2 2 0 012 2v4a2 2 0 01-2 2H9l-3 3v-3H4a2 2 0 01-2-2V5z"></path>
+                                        <path d="M15 7v2a4 4 0 01-4 4H9.828l-1.766 1.767c.28.149.599.233.938.233h2l3 3v-3h2a2 2 0 002-2V9a2 2 0 00-2-2h-1z"></path>
+                                    </svg>
+                                </div>
+                            </div>
+                            
+                            <div class="flex items-center justify-center py-2">
+                                <div class="flex items-center space-x-2 text-xs text-gray-500">
+                                    <div class="w-1 h-1 bg-purple-500 rounded-full animate-ping"></div>
+                                    <span>AI is typing</span>
+                                </div>
+                            </div>
+                        </div>
+                        
+                        <div class="relative">
+                            <input type="text" placeholder="Ask anything..." class="w-full bg-gray-800/50 rounded-xl px-6 py-4 pr-12 focus:outline-none focus:ring-2 focus:ring-purple-500 transition-all" x-data @keydown.enter="$el.value = ''">
+                            <button class="absolute right-2 top-1/2 -translate-y-1/2 p-2 bg-gradient-to-r from-purple-600 to-pink-600 rounded-lg hover:opacity-90 transition-opacity">
+                                <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 19l9 2-9-18-9 18 9-2zm0 0v-8"></path>
+                                </svg>
+                            </button>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Activity Feed -->
+                <div class="glass-morphism rounded-2xl p-6">
+                    <h2 class="text-xl font-bold mb-6 flex items-center justify-between">
+                        <span>Neural Activity</span>
+                        <span class="text-xs text-purple-400 font-normal">Real-time</span>
+                    </h2>
+                    
+                    <div class="space-y-4">
+                        <div class="relative">
+                            <div class="absolute left-4 top-8 bottom-0 w-0.5 bg-purple-600/30"></div>
+                            
+                            <div class="relative flex items-start space-x-3">
+                                <div class="relative z-10 w-8 h-8 bg-purple-600 rounded-full flex items-center justify-center animate-pulse-slow">
+                                    <svg class="w-4 h-4" fill="currentColor" viewBox="0 0 20 20">
+                                        <path d="M2 5a2 2 0 012-2h7a2 2 0 012 2v4a2 2 0 01-2 2H9l-3 3v-3H4a2 2 0 01-2-2V5z"></path>
+                                    </svg>
+                                </div>
+                                <div class="flex-1">
+                                    <p class="text-sm font-medium">New conversation started</p>
+                                    <p class="text-xs text-gray-500">User ID: #4892</p>
+                                    <p class="text-xs text-purple-400 mt-1">2 minutes ago</p>
+                                </div>
+                            </div>
+                            
+                            <div class="relative flex items-start space-x-3 mt-6">
+                                <div class="relative z-10 w-8 h-8 bg-green-600 rounded-full flex items-center justify-center">
+                                    <svg class="w-4 h-4" fill="currentColor" viewBox="0 0 20 20">
+                                        <path fill-rule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clip-rule="evenodd"></path>
+                                    </svg>
+                                </div>
+                                <div class="flex-1">
+                                    <p class="text-sm font-medium">Query resolved successfully</p>
+                                    <p class="text-xs text-gray-500">Response time: 0.18s</p>
+                                    <p class="text-xs text-green-400 mt-1">5 minutes ago</p>
+                                </div>
+                            </div>
+                            
+                            <div class="relative flex items-start space-x-3 mt-6">
+                                <div class="relative z-10 w-8 h-8 bg-blue-600 rounded-full flex items-center justify-center">
+                                    <svg class="w-4 h-4" fill="currentColor" viewBox="0 0 20 20">
+                                        <path d="M2 10a8 8 0 018-8v8h8a8 8 0 11-16 0z"></path>
+                                        <path d="M12 2.252A8.014 8.014 0 0117.748 8H12V2.252z"></path>
+                                    </svg>
+                                </div>
+                                <div class="flex-1">
+                                    <p class="text-sm font-medium">Performance optimization</p>
+                                    <p class="text-xs text-gray-500">CPU usage reduced by 23%</p>
+                                    <p class="text-xs text-blue-400 mt-1">12 minutes ago</p>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                    
+                    <div class="mt-6 p-4 bg-purple-900/20 rounded-xl border border-purple-500/30">
+                        <div class="flex items-center justify-between mb-2">
+                            <span class="text-sm font-medium">System Health</span>
+                            <span class="text-xs text-green-400">Optimal</span>
+                        </div>
+                        <div class="space-y-2">
+                            <div class="flex items-center space-x-2">
+                                <span class="text-xs text-gray-400 w-16">CPU</span>
+                                <div class="flex-1 h-2 bg-gray-800 rounded-full overflow-hidden">
+                                    <div class="h-full bg-gradient-to-r from-green-600 to-green-400 rounded-full" style="width: 34%"></div>
+                                </div>
+                                <span class="text-xs text-gray-400">34%</span>
+                            </div>
+                            <div class="flex items-center space-x-2">
+                                <span class="text-xs text-gray-400 w-16">Memory</span>
+                                <div class="flex-1 h-2 bg-gray-800 rounded-full overflow-hidden">
+                                    <div class="h-full bg-gradient-to-r from-blue-600 to-blue-400 rounded-full" style="width: 52%"></div>
+                                </div>
+                                <span class="text-xs text-gray-400">52%</span>
+                            </div>
+                            <div class="flex items-center space-x-2">
+                                <span class="text-xs text-gray-400 w-16">Network</span>
+                                <div class="flex-1 h-2 bg-gray-800 rounded-full overflow-hidden">
+                                    <div class="h-full bg-gradient-to-r from-purple-600 to-purple-400 rounded-full animate-pulse" style="width: 78%"></div>
+                                </div>
+                                <span class="text-xs text-gray-400">78%</span>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Advanced Features Section -->
+            <div class="grid grid-cols-1 lg:grid-cols-3 gap-6 mt-6">
+                <!-- Knowledge Base -->
+                <div class="glass-morphism rounded-2xl p-6 hover-lift">
+                    <div class="flex items-center justify-between mb-4">
+                        <h3 class="text-lg font-bold">Knowledge Base</h3>
+                        <div class="p-2 bg-purple-600/20 rounded-lg">
+                            <svg class="w-5 h-5 text-purple-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 6.253v13m0-13C10.832 5.477 9.246 5 7.5 5S4.168 5.477 3 6.253v13C4.168 18.477 5.754 18 7.5 18s3.332.477 4.5 1.253m0-13C13.168 5.477 14.754 5 16.5 5c1.747 0 3.332.477 4.5 1.253v13C19.832 18.477 18.247 18 16.5 18c-1.746 0-3.332.477-4.5 1.253"></path>
+                            </svg>
+                        </div>
+                    </div>
+                    <div class="space-y-3">
+                        <div class="p-3 bg-gray-800/50 rounded-lg flex items-center justify-between group cursor-pointer hover:bg-purple-900/20 transition-all">
+                            <span class="text-sm">Technical Documentation</span>
+                            <span class="text-xs text-purple-400">1,234 docs</span>
+                        </div>
+                        <div class="p-3 bg-gray-800/50 rounded-lg flex items-center justify-between group cursor-pointer hover:bg-purple-900/20 transition-all">
+                            <span class="text-sm">API References</span>
+                            <span class="text-xs text-purple-400">567 endpoints</span>
+                        </div>
+                        <div class="p-3 bg-gray-800/50 rounded-lg flex items-center justify-between group cursor-pointer hover:bg-purple-900/20 transition-all">
+                            <span class="text-sm">User Guides</span>
+                            <span class="text-xs text-purple-400">89 guides</span>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Model Performance -->
+                <div class="glass-morphism rounded-2xl p-6 hover-lift">
+                    <div class="flex items-center justify-between mb-4">
+                        <h3 class="text-lg font-bold">Model Performance</h3>
+                        <div class="p-2 bg-blue-600/20 rounded-lg">
+                            <svg class="w-5 h-5 text-blue-400 animate-spin-slow" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15"></path>
+                            </svg>
+                        </div>
+                    </div>
+                    <div class="relative h-32">
+                        <svg class="w-full h-full" viewBox="0 0 200 100">
+                            <defs>
+                                <linearGradient id="gradient" x1="0%" y1="0%" x2="0%" y2="100%">
+                                    <stop offset="0%" style="stop-color:#7c3aed;stop-opacity:0.8" />
+                                    <stop offset="100%" style="stop-color:#7c3aed;stop-opacity:0.1" />
+                                </linearGradient>
+                            </defs>
+                            <path d="M 0 80 Q 20 60 40 65 T 80 50 T 120 55 T 160 40 T 200 45 L 200 100 L 0 100 Z" fill="url(#gradient)" class="animate-pulse-slow"/>
+                            <path d="M 0 80 Q 20 60 40 65 T 80 50 T 120 55 T 160 40 T 200 45" fill="none" stroke="#7c3aed" stroke-width="2"/>
+                        </svg>
+                    </div>
+                    <div class="flex justify-between mt-4">
+                        <div class="text-center">
+                            <p class="text-2xl font-bold text-purple-400">99.8%</p>
+                            <p class="text-xs text-gray-500">Accuracy</p>
+                        </div>
+                        <div class="text-center">
+                            <p class="text-2xl font-bold text-blue-400">0.12s</p>
+                            <p class="text-xs text-gray-500">Latency</p>
+                        </div>
+                        <div class="text-center">
+                            <p class="text-2xl font-bold text-green-400">45K</p>
+                            <p class="text-xs text-gray-500">Queries/min</p>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Quick Actions -->
+                <div class="glass-morphism rounded-2xl p-6 hover-lift">
+                    <div class="flex items-center justify-between mb-4">
+                        <h3 class="text-lg font-bold">Quick Actions</h3>
+                        <div class="p-2 bg-pink-600/20 rounded-lg">
+                            <svg class="w-5 h-5 text-pink-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 10V3L4 14h7v7l9-11h-7z"></path>
+                            </svg>
+                        </div>
+                    </div>
+                    <div class="grid grid-cols-2 gap-3">
+                        <button class="p-3 bg-gradient-to-br from-purple-600/20 to-pink-600/20 rounded-lg text-sm hover:from-purple-600/30 hover:to-pink-600/30 transition-all border border-purple-500/30">
+                            Train Model
+                        </button>
+                        <button class="p-3 bg-gradient-to-br from-blue-600/20 to-purple-600/20 rounded-lg text-sm hover:from-blue-600/30 hover:to-purple-600/30 transition-all border border-blue-500/30">
+                            Export Data
+                        </button>
+                        <button class="p-3 bg-gradient-to-br from-green-600/20 to-blue-600/20 rounded-lg text-sm hover:from-green-600/30 hover:to-blue-600/30 transition-all border border-green-500/30">
+                            Backup
+                        </button>
+                        <button class="p-3 bg-gradient-to-br from-pink-600/20 to-purple-600/20 rounded-lg text-sm hover:from-pink-600/30 hover:to-purple-600/30 transition-all border border-pink-500/30">
+                            Settings
+                        </button>
+                    </div>
+                    <div class="mt-4 p-3 bg-purple-900/20 rounded-lg border border-purple-500/30">
+                        <p class="text-xs text-purple-400 mb-1">Next scheduled maintenance</p>
+                        <p class="text-sm font-medium">2024.01.20 03:00 JST</p>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Floating Action Button -->
+    <button class="fixed bottom-8 right-8 w-16 h-16 bg-gradient-to-br from-purple-600 to-pink-600 rounded-full shadow-2xl hover:scale-110 transition-transform animate-float neon-border">
+        <svg class="w-8 h-8 mx-auto" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 6v6m0 0v6m0-6h6m-6 0H6"></path>
+        </svg>
+    </button>
+
+    <script>
+        // Matrix rain effect
+        const matrix = document.getElementById('matrix');
+        const columns = Math.floor(window.innerWidth / 20);
+        
+        for (let i = 0; i < columns; i++) {
+            const column = document.createElement('div');
+            column.className = 'matrix-column';
+            column.style.left = `${i * 20}px`;
+            column.style.animationDelay = `${Math.random() * 10}s`;
+            column.style.animationDuration = `${10 + Math.random() * 10}s`;
+            
+            const text = Array(100).fill(0).map(() => Math.random() > 0.5 ? '1' : '0').join('');
+            column.textContent = text;
+            
+            matrix.appendChild(column);
+        }
+    </script>
+</body>
+</html>

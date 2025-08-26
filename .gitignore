@@ -1,0 +1,113 @@
+# Environment variables
+.env
+.env.*
+
+# IDE specific files
+.idea/
+.vscode/
+.cursor/
+.kiro/
+*.swp
+*.swo
+*~
+
+# OS specific files
+.DS_Store
+Thumbs.db
+
+# Docker volumes
+postgres_data/
+mongodb_data/
+chroma_data/
+
+# Log files
+*.log
+logs/
+
+# Temporary files
+tmp/
+temp/
+
+# Backup files
+*.bak
+*.backup
+
+# Python
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+.Python
+env/
+venv/
+.venv
+
+# Node
+node_modules/
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+
+# Build outputs
+build/
+dist/
+out/
+.next/
+
+# Test coverage
+coverage/
+.coverage
+htmlcov/
+.pytest_cache/
+
+# Documentation build
+docs/_build/
+docs/.doctrees/
+
+# Certificates
+*.pem
+*.key
+*.crt
+
+# Database files
+*.db
+*.sqlite
+*.sqlite3
+
+# Cache directories
+.cache/
+.parcel-cache/
+
+# Compiled files
+*.com
+*.class
+*.dll
+*.exe
+*.o
+*.so
+
+# Archives
+*.7z
+*.dmg
+*.gz
+*.iso
+*.jar
+*.rar
+*.tar
+*.zip
+
+# Package manager locks (keep these in version control)
+# package-lock.json
+# yarn.lock
+# Pipfile.lock
+
+# Miscellaneous
+.env.example.filled
+secrets/
+private/
+
+# Backend specific
+backend/uploads/
+backend/converted/
+backend/firebase_storage/
+backend/data/

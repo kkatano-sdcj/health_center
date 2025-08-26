@@ -1,0 +1,468 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Knowledge Search - Smart Data Assistant</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+    <script>
+        tailwind.config = {
+            theme: {
+                extend: {
+                    fontFamily: {
+                        'inter': ['Inter', 'sans-serif'],
+                    },
+                    colors: {
+                        'primary': '#6366f1',
+                        'secondary': '#8b5cf6',
+                    },
+                    animation: {
+                        'fade-in': 'fadeIn 0.5s ease-in-out',
+                        'slide-up': 'slideUp 0.3s ease-out',
+                        'scale-in': 'scaleIn 0.2s ease-out',
+                    },
+                    keyframes: {
+                        fadeIn: {
+                            '0%': { opacity: '0' },
+                            '100%': { opacity: '1' }
+                        },
+                        slideUp: {
+                            '0%': { transform: 'translateY(20px)', opacity: '0' },
+                            '100%': { transform: 'translateY(0)', opacity: '1' }
+                        },
+                        scaleIn: {
+                            '0%': { transform: 'scale(0.95)', opacity: '0' },
+                            '100%': { transform: 'scale(1)', opacity: '1' }
+                        }
+                    }
+                }
+            }
+        }
+    </script>
+    <style>
+        body {
+            font-family: 'Inter', sans-serif;
+        }
+        
+        .gradient-border {
+            background: linear-gradient(white, white) padding-box,
+                        linear-gradient(135deg, #6366f1, #8b5cf6) border-box;
+            border: 2px solid transparent;
+        }
+        
+        .hover-glow {
+            transition: all 0.3s ease;
+        }
+        
+        .hover-glow:hover {
+            box-shadow: 0 0 30px rgba(99, 102, 241, 0.3);
+        }
+        
+        .search-focus:focus-within {
+            box-shadow: 0 0 0 4px rgba(99, 102, 241, 0.1);
+        }
+        
+        .smooth-shadow {
+            box-shadow: 0 10px 40px rgba(0, 0, 0, 0.08);
+        }
+        
+        .message-bubble {
+            animation: slideUp 0.3s ease-out;
+        }
+        
+        ::-webkit-scrollbar {
+            width: 6px;
+        }
+        
+        ::-webkit-scrollbar-track {
+            background: #f3f4f6;
+        }
+        
+        ::-webkit-scrollbar-thumb {
+            background: #d1d5db;
+            border-radius: 3px;
+        }
+        
+        ::-webkit-scrollbar-thumb:hover {
+            background: #9ca3af;
+        }
+        
+        .typing-dots span {
+            animation: typing 1.4s infinite;
+        }
+        
+        .typing-dots span:nth-child(2) {
+            animation-delay: 0.2s;
+        }
+        
+        .typing-dots span:nth-child(3) {
+            animation-delay: 0.4s;
+        }
+        
+        @keyframes typing {
+            0%, 60%, 100% {
+                opacity: 0.3;
+                transform: translateY(0);
+            }
+            30% {
+                opacity: 1;
+                transform: translateY(-10px);
+            }
+        }
+    </style>
+</head>
+<body class="bg-gray-50">
+    <!-- Navigation -->
+    <nav class="bg-white border-b border-gray-100 sticky top-0 z-50">
+        <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+            <div class="flex items-center justify-between h-16">
+                <div class="flex items-center">
+                    <div class="flex items-center space-x-3">
+                        <div class="w-9 h-9 bg-gradient-to-br from-primary to-secondary rounded-xl flex items-center justify-center">
+                            <svg class="w-5 h-5 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"></path>
+                            </svg>
+                        </div>
+                        <div>
+                            <h1 class="text-xl font-semibold text-gray-900">Knowledge Search</h1>
+                            <p class="text-xs text-gray-500">Smart Data Assistant</p>
+                        </div>
+                    </div>
+                </div>
+                
+                <div class="flex items-center space-x-4">
+                    <button class="text-gray-500 hover:text-gray-700 transition-colors">
+                        <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10.325 4.317c.426-1.756 2.924-1.756 3.35 0a1.724 1.724 0 002.573 1.066c1.543-.94 3.31.826 2.37 2.37a1.724 1.724 0 001.065 2.572c1.756.426 1.756 2.924 0 3.35a1.724 1.724 0 00-1.066 2.573c.94 1.543-.826 3.31-2.37 2.37a1.724 1.724 0 00-2.572 1.065c-.426 1.756-2.924 1.756-3.35 0a1.724 1.724 0 00-2.573-1.066c-1.543.94-3.31-.826-2.37-2.37a1.724 1.724 0 00-1.065-2.572c-1.756-.426-1.756-2.924 0-3.35a1.724 1.724 0 001.066-2.573c-.94-1.543.826-3.31 2.37-2.37.996.608 2.296.07 2.572-1.065z"></path>
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z"></path>
+                        </svg>
+                    </button>
+                    <div class="flex items-center space-x-3 pl-4 border-l border-gray-200">
+                        <div class="text-right">
+                            <p class="text-sm font-medium text-gray-900">山田 太郎</p>
+                            <p class="text-xs text-gray-500">管理者</p>
+                        </div>
+                        <img src="https://ui-avatars.com/api/?name=Taro+Yamada&background=6366f1&color=fff&rounded=true&bold=true" 
+                             alt="User" class="w-9 h-9 rounded-full">
+                    </div>
+                </div>
+            </div>
+        </div>
+    </nav>
+
+    <!-- Main Content -->
+    <div class="flex h-[calc(100vh-64px)]">
+        <!-- Sidebar -->
+        <aside class="w-80 bg-white border-r border-gray-100 overflow-y-auto">
+            <div class="p-6">
+                <div class="mb-6">
+                    <h2 class="text-xs font-semibold text-gray-500 uppercase tracking-wider mb-3">検索履歴</h2>
+                    <div class="space-y-2">
+                        <button class="w-full text-left p-3 rounded-lg hover:bg-gray-50 transition-colors group">
+                            <div class="flex items-start justify-between">
+                                <div class="flex-1 min-w-0">
+                                    <p class="text-sm font-medium text-gray-900 truncate">製品仕様書について</p>
+                                    <p class="text-xs text-gray-500 mt-1">2分前</p>
+                                </div>
+                                <svg class="w-4 h-4 text-gray-400 opacity-0 group-hover:opacity-100 transition-opacity" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7"></path>
+                                </svg>
+                            </div>
+                        </button>
+                        <button class="w-full text-left p-3 rounded-lg hover:bg-gray-50 transition-colors group">
+                            <div class="flex items-start justify-between">
+                                <div class="flex-1 min-w-0">
+                                    <p class="text-sm font-medium text-gray-900 truncate">API ドキュメント v2.0</p>
+                                    <p class="text-xs text-gray-500 mt-1">1時間前</p>
+                                </div>
+                                <svg class="w-4 h-4 text-gray-400 opacity-0 group-hover:opacity-100 transition-opacity" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7"></path>
+                                </svg>
+                            </div>
+                        </button>
+                        <button class="w-full text-left p-3 rounded-lg hover:bg-gray-50 transition-colors group">
+                            <div class="flex items-start justify-between">
+                                <div class="flex-1 min-w-0">
+                                    <p class="text-sm font-medium text-gray-900 truncate">セキュリティガイドライン</p>
+                                    <p class="text-xs text-gray-500 mt-1">昨日</p>
+                                </div>
+                                <svg class="w-4 h-4 text-gray-400 opacity-0 group-hover:opacity-100 transition-opacity" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7"></path>
+                                </svg>
+                            </div>
+                        </button>
+                    </div>
+                </div>
+
+                <div class="mb-6">
+                    <h2 class="text-xs font-semibold text-gray-500 uppercase tracking-wider mb-3">カテゴリ</h2>
+                    <div class="space-y-1">
+                        <button class="w-full text-left p-3 rounded-lg hover:bg-gray-50 transition-colors flex items-center justify-between group">
+                            <div class="flex items-center space-x-3">
+                                <div class="w-8 h-8 bg-blue-100 rounded-lg flex items-center justify-center">
+                                    <svg class="w-4 h-4 text-blue-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"></path>
+                                    </svg>
+                                </div>
+                                <span class="text-sm font-medium text-gray-700">ドキュメント</span>
+                            </div>
+                            <span class="text-xs text-gray-400">1,234</span>
+                        </button>
+                        <button class="w-full text-left p-3 rounded-lg hover:bg-gray-50 transition-colors flex items-center justify-between group">
+                            <div class="flex items-center space-x-3">
+                                <div class="w-8 h-8 bg-green-100 rounded-lg flex items-center justify-center">
+                                    <svg class="w-4 h-4 text-green-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10 20l4-16m4 4l4 4-4 4M6 16l-4-4 4-4"></path>
+                                    </svg>
+                                </div>
+                                <span class="text-sm font-medium text-gray-700">API</span>
+                            </div>
+                            <span class="text-xs text-gray-400">456</span>
+                        </button>
+                        <button class="w-full text-left p-3 rounded-lg hover:bg-gray-50 transition-colors flex items-center justify-between group">
+                            <div class="flex items-center space-x-3">
+                                <div class="w-8 h-8 bg-purple-100 rounded-lg flex items-center justify-center">
+                                    <svg class="w-4 h-4 text-purple-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 6V4m0 2a2 2 0 100 4m0-4a2 2 0 110 4m-6 8a2 2 0 100-4m0 4a2 2 0 110-4m0 4v2m0-6V4m6 6v10m6-2a2 2 0 100-4m0 4a2 2 0 110-4m0 4v2m0-6V4"></path>
+                                    </svg>
+                                </div>
+                                <span class="text-sm font-medium text-gray-700">ガイド</span>
+                            </div>
+                            <span class="text-xs text-gray-400">89</span>
+                        </button>
+                    </div>
+                </div>
+
+                <div class="p-4 bg-gradient-to-br from-primary/10 to-secondary/10 rounded-xl">
+                    <h3 class="text-sm font-semibold text-gray-900 mb-2">💡 ヒント</h3>
+                    <p class="text-xs text-gray-600 mb-3">
+                        より具体的な質問をすると、より正確な回答が得られます。
+                    </p>
+                    <button class="text-xs font-medium text-primary hover:text-secondary transition-colors">
+                        使い方を見る →
+                    </button>
+                </div>
+            </div>
+        </aside>
+
+        <!-- Chat Area -->
+        <main class="flex-1 flex flex-col bg-gray-50">
+            <!-- Chat Messages -->
+            <div class="flex-1 overflow-y-auto p-6">
+                <div class="max-w-4xl mx-auto space-y-6">
+                    <!-- Welcome Message -->
+                    <div class="text-center py-12 animate-fade-in">
+                        <div class="w-16 h-16 bg-gradient-to-br from-primary to-secondary rounded-2xl flex items-center justify-center mx-auto mb-4">
+                            <svg class="w-8 h-8 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 12h.01M12 12h.01M16 12h.01M21 12c0 4.418-4.03 8-9 8a9.863 9.863 0 01-4.255-.949L3 20l1.395-3.72C3.512 15.042 3 13.574 3 12c0-4.418 4.03-8 9-8s9 3.582 9 8z"></path>
+                            </svg>
+                        </div>
+                        <h2 class="text-2xl font-bold text-gray-900 mb-2">こんにちは！何をお探しですか？</h2>
+                        <p class="text-gray-600 mb-8">社内のあらゆる情報を瞬時に検索できます</p>
+                        
+                        <!-- Quick Actions -->
+                        <div class="flex flex-wrap justify-center gap-3">
+                            <button class="px-4 py-2 bg-white rounded-full text-sm font-medium text-gray-700 hover:bg-gray-100 transition-colors smooth-shadow">
+                                📋 最新の仕様書
+                            </button>
+                            <button class="px-4 py-2 bg-white rounded-full text-sm font-medium text-gray-700 hover:bg-gray-100 transition-colors smooth-shadow">
+                                🔧 API リファレンス
+                            </button>
+                            <button class="px-4 py-2 bg-white rounded-full text-sm font-medium text-gray-700 hover:bg-gray-100 transition-colors smooth-shadow">
+                                📚 ユーザーガイド
+                            </button>
+                            <button class="px-4 py-2 bg-white rounded-full text-sm font-medium text-gray-700 hover:bg-gray-100 transition-colors smooth-shadow">
+                                🔒 セキュリティ情報
+                            </button>
+                        </div>
+                    </div>
+
+                    <!-- Sample Messages -->
+                    <div class="space-y-4">
+                        <!-- User Message -->
+                        <div class="flex justify-end message-bubble">
+                            <div class="max-w-md">
+                                <div class="bg-gradient-to-br from-primary to-secondary text-white rounded-2xl rounded-br-sm px-4 py-3 smooth-shadow">
+                                    <p class="text-sm">新製品の技術仕様書はどこにありますか？</p>
+                                </div>
+                                <p class="text-xs text-gray-500 mt-1 text-right">14:23</p>
+                            </div>
+                        </div>
+
+                        <!-- AI Response -->
+                        <div class="flex justify-start message-bubble">
+                            <div class="max-w-md">
+                                <div class="bg-white rounded-2xl rounded-bl-sm px-4 py-3 smooth-shadow">
+                                    <p class="text-sm text-gray-800 mb-3">新製品の技術仕様書は以下の場所にあります：</p>
+                                    
+                                    <div class="space-y-2">
+                                        <a href="#" class="block p-3 bg-gray-50 rounded-lg hover:bg-gray-100 transition-colors group">
+                                            <div class="flex items-center justify-between">
+                                                <div class="flex items-center space-x-3">
+                                                    <div class="w-10 h-10 bg-blue-100 rounded-lg flex items-center justify-center">
+                                                        <svg class="w-5 h-5 text-blue-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M7 21h10a2 2 0 002-2V9.414a1 1 0 00-.293-.707l-5.414-5.414A1 1 0 0012.586 3H7a2 2 0 00-2 2v14a2 2 0 002 2z"></path>
+                                                        </svg>
+                                                    </div>
+                                                    <div>
+                                                        <p class="text-sm font-medium text-gray-900">製品仕様書_v2.3.pdf</p>
+                                                        <p class="text-xs text-gray-500">更新: 2024/01/15</p>
+                                                    </div>
+                                                </div>
+                                                <svg class="w-4 h-4 text-gray-400 group-hover:text-gray-600 transition-colors" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7"></path>
+                                                </svg>
+                                            </div>
+                                        </a>
+                                        
+                                        <a href="#" class="block p-3 bg-gray-50 rounded-lg hover:bg-gray-100 transition-colors group">
+                                            <div class="flex items-center justify-between">
+                                                <div class="flex items-center space-x-3">
+                                                    <div class="w-10 h-10 bg-green-100 rounded-lg flex items-center justify-center">
+                                                        <svg class="w-5 h-5 text-green-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 17V7m0 10a2 2 0 01-2 2H5a2 2 0 01-2-2V7a2 2 0 012-2h2a2 2 0 012 2m0 10a2 2 0 002 2h2a2 2 0 002-2M9 7a2 2 0 012-2h2a2 2 0 012 2m0 10V7m0 10a2 2 0 002 2h2a2 2 0 002-2V7a2 2 0 00-2-2h-2a2 2 0 00-2 2"></path>
+                                                        </svg>
+                                                    </div>
+                                                    <div>
+                                                        <p class="text-sm font-medium text-gray-900">技術詳細資料</p>
+                                                        <p class="text-xs text-gray-500">更新: 2024/01/10</p>
+                                                    </div>
+                                                </div>
+                                                <svg class="w-4 h-4 text-gray-400 group-hover:text-gray-600 transition-colors" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7"></path>
+                                                </svg>
+                                            </div>
+                                        </a>
+                                    </div>
+                                    
+                                    <div class="mt-3 pt-3 border-t border-gray-100">
+                                        <p class="text-xs text-gray-500">
+                                            関連ドキュメント: 3件 | 信頼度: 98%
+                                        </p>
+                                    </div>
+                                </div>
+                                <p class="text-xs text-gray-500 mt-1">14:23</p>
+                            </div>
+                        </div>
+
+                        <!-- Typing Indicator -->
+                        <div class="flex justify-start">
+                            <div class="bg-white rounded-2xl rounded-bl-sm px-4 py-3 smooth-shadow">
+                                <div class="typing-dots flex space-x-1">
+                                    <span class="w-2 h-2 bg-gray-400 rounded-full"></span>
+                                    <span class="w-2 h-2 bg-gray-400 rounded-full"></span>
+                                    <span class="w-2 h-2 bg-gray-400 rounded-full"></span>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Input Area -->
+            <div class="border-t border-gray-200 bg-white p-4">
+                <div class="max-w-4xl mx-auto">
+                    <div class="relative">
+                        <div class="search-focus gradient-border rounded-2xl bg-white transition-all">
+                            <div class="flex items-end p-2">
+                                <button class="p-2 text-gray-400 hover:text-gray-600 transition-colors">
+                                    <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15.172 7l-6.586 6.586a2 2 0 102.828 2.828l6.414-6.586a4 4 0 00-5.656-5.656l-6.415 6.585a6 6 0 108.486 8.486L20.5 13"></path>
+                                    </svg>
+                                </button>
+                                <input type="text" 
+                                       placeholder="質問を入力してください..." 
+                                       class="flex-1 px-3 py-2 text-sm focus:outline-none"
+                                       autofocus>
+                                <button class="p-2 bg-gradient-to-r from-primary to-secondary text-white rounded-xl hover:opacity-90 transition-opacity hover-glow">
+                                    <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 19l9 2-9-18-9 18 9-2zm0 0v-8"></path>
+                                    </svg>
+                                </button>
+                            </div>
+                        </div>
+                        <div class="flex items-center justify-between mt-2 px-2">
+                            <p class="text-xs text-gray-500">
+                                <kbd class="px-2 py-1 bg-gray-100 rounded text-xs">Enter</kbd> で送信
+                            </p>
+                            <div class="flex items-center space-x-2 text-xs text-gray-500">
+                                <span>AI準備完了</span>
+                                <span class="w-2 h-2 bg-green-500 rounded-full animate-pulse"></span>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </main>
+
+        <!-- Right Panel - Info -->
+        <aside class="w-80 bg-white border-l border-gray-100 overflow-y-auto hidden xl:block">
+            <div class="p-6">
+                <div class="mb-6">
+                    <h2 class="text-xs font-semibold text-gray-500 uppercase tracking-wider mb-3">検索結果の詳細</h2>
+                    <div class="p-4 bg-gray-50 rounded-xl">
+                        <div class="flex items-center justify-between mb-3">
+                            <h3 class="text-sm font-semibold text-gray-900">製品仕様書_v2.3.pdf</h3>
+                            <span class="text-xs text-green-600 font-medium">最新版</span>
+                        </div>
+                        <div class="space-y-2 text-xs text-gray-600">
+                            <div class="flex justify-between">
+                                <span>ファイルサイズ:</span>
+                                <span class="font-medium text-gray-900">2.4 MB</span>
+                            </div>
+                            <div class="flex justify-between">
+                                <span>最終更新者:</span>
+                                <span class="font-medium text-gray-900">佐藤 花子</span>
+                            </div>
+                            <div class="flex justify-between">
+                                <span>閲覧回数:</span>
+                                <span class="font-medium text-gray-900">1,234回</span>
+                            </div>
+                        </div>
+                        <div class="mt-4 pt-4 border-t border-gray-200">
+                            <button class="w-full py-2 bg-primary text-white rounded-lg text-sm font-medium hover:bg-primary/90 transition-colors">
+                                ファイルを開く
+                            </button>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="mb-6">
+                    <h2 class="text-xs font-semibold text-gray-500 uppercase tracking-wider mb-3">関連ドキュメント</h2>
+                    <div class="space-y-2">
+                        <a href="#" class="block p-3 bg-gray-50 rounded-lg hover:bg-gray-100 transition-colors">
+                            <p class="text-sm font-medium text-gray-900">インストールガイド</p>
+                            <p class="text-xs text-gray-500 mt-1">更新: 3日前</p>
+                        </a>
+                        <a href="#" class="block p-3 bg-gray-50 rounded-lg hover:bg-gray-100 transition-colors">
+                            <p class="text-sm font-medium text-gray-900">FAQ集</p>
+                            <p class="text-xs text-gray-500 mt-1">更新: 1週間前</p>
+                        </a>
+                        <a href="#" class="block p-3 bg-gray-50 rounded-lg hover:bg-gray-100 transition-colors">
+                            <p class="text-sm font-medium text-gray-900">トラブルシューティング</p>
+                            <p class="text-xs text-gray-500 mt-1">更新: 2週間前</p>
+                        </a>
+                    </div>
+                </div>
+
+                <div class="p-4 bg-blue-50 rounded-xl">
+                    <div class="flex items-start space-x-3">
+                        <div class="w-8 h-8 bg-blue-100 rounded-lg flex items-center justify-center flex-shrink-0">
+                            <svg class="w-4 h-4 text-blue-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"></path>
+                            </svg>
+                        </div>
+                        <div>
+                            <h3 class="text-sm font-semibold text-gray-900 mb-1">検索のコツ</h3>
+                            <p class="text-xs text-gray-600">
+                                キーワードを組み合わせて検索すると、より正確な結果が得られます。
+                            </p>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </aside>
+    </div>
+</body>
+</html>

@@ -1,0 +1,87 @@
+services:
+  frontend:
+    build:
+      context: ./frontend
+      dockerfile: Dockerfile.dev
+    container_name: health_center_frontend
+    ports:
+      - "3000:3000"
+    volumes:
+      - ./frontend:/app
+      - /app/node_modules
+      - /app/.next
+    environment:
+      - NODE_ENV=development
+      - NEXT_PUBLIC_API_URL=http://localhost:8000
+    networks:
+      - health_center_network
+    depends_on:
+      - backend
+
+  backend:
+    build:
+      context: ./backend
+      dockerfile: Dockerfile.dev
+    container_name: health_center_backend
+    ports:
+      - "8000:8000"
+    volumes:
+      - ./backend:/app
+      - chroma_data:/app/data/chroma
+      - ./backend/uploads:/app/uploads
+      - ./backend/converted:/app/converted
+    environment:
+      - PYTHONUNBUFFERED=1
+      - DATABASE_URL=postgresql://postgres:postgres@postgres:5432/health_center
+      - MONGODB_URL=mongodb://mongodb:27017/health_center
+      - REDIS_URL=redis://redis:6379/0
+      - CHROMA_PERSIST_DIR=/app/data/chroma
+      - CHROMA_COLLECTION_NAME=health-center-vectors
+      - OPENAI_API_KEY=${OPENAI_API_KEY}
+    networks:
+      - health_center_network
+    depends_on:
+      - postgres
+      - mongodb
+      - redis
+
+  postgres:
+    image: postgres:15-alpine
+    container_name: health_center_postgres
+    environment:
+      - POSTGRES_USER=postgres
+      - POSTGRES_PASSWORD=postgres
+      - POSTGRES_DB=health_center
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    ports:
+      - "5432:5432"
+    networks:
+      - health_center_network
+
+  mongodb:
+    image: mongo:7.0
+    container_name: health_center_mongodb
+    volumes:
+      - mongodb_data:/data/db
+    ports:
+      - "27017:27017"
+    networks:
+      - health_center_network
+
+  redis:
+    image: redis:7-alpine
+    container_name: health_center_redis
+    ports:
+      - "6379:6379"
+    networks:
+      - health_center_network
+
+networks:
+  health_center_network:
+    driver: bridge
+
+volumes:
+  postgres_data:
+  mongodb_data:
+  chroma_data:
