@@ -7,8 +7,7 @@ import PreviewModal from '@/components/convert/PreviewModal';
 import FileUploader from '@/components/convert/FileUploader';
 import ConversionResults from '@/components/convert/ConversionResults';
 import { useWebSocket } from '@/hooks/useWebSocket';
-import Link from 'next/link';
-import { Home } from 'lucide-react';
+import { UnifiedHeader } from '@/components/layout/UnifiedHeader';
 import { AxiosError } from 'axios';
 
 export default function ConvertPage() {
@@ -271,46 +270,17 @@ export default function ConvertPage() {
 
   return (
     <div className="min-h-screen bg-gray-50">
-      <nav className="bg-white shadow-sm">
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-          <div className="flex justify-between items-center h-16">
-            <div className="flex items-center space-x-8">
-              <Link href="/" className="text-xl font-semibold">
-                Health Center
-              </Link>
-              <div className="flex space-x-4">
-                <Link href="/aichat" className="text-gray-700 hover:text-blue-600 px-3 py-2 rounded-md text-sm font-medium">
-                  AI Chat
-                </Link>
-                <Link href="/convert" className="text-blue-600 px-3 py-2 rounded-md text-sm font-medium">
-                  Convert
-                </Link>
-                <Link href="/storage" className="text-gray-700 hover:text-blue-600 px-3 py-2 rounded-md text-sm font-medium">
-                  Storage
-                </Link>
-                <Link href="/uploaded" className="text-gray-700 hover:text-blue-600 px-3 py-2 rounded-md text-sm font-medium">
-                  Uploaded
-                </Link>
-              </div>
-            </div>
-            <div className="flex items-center space-x-4">
-              <Link href="/" className="text-gray-500 hover:text-blue-600 transition-colors" title="ホームに戻る">
-                <Home className="w-5 h-5" />
-              </Link>
-            </div>
-          </div>
-        </div>
-      </nav>
+      <UnifiedHeader />
 
       <main className="max-w-7xl mx-auto py-8 px-4 sm:px-6 lg:px-8">
         <div className="mb-8">
-          <h1 className="text-3xl font-bold text-gray-900">Document Converter</h1>
+          <h1 className="text-3xl font-bold bg-gradient-to-r from-primary to-secondary bg-clip-text text-transparent">Document Converter</h1>
           <p className="mt-2 text-gray-600">Convert documents to Markdown format</p>
         </div>
 
-        <div className="bg-white rounded-lg shadow p-6 mb-6">
+        <div className="bg-white rounded-xl shadow-sm border border-gray-100 p-6 mb-6">
           <div className="mb-4">
-            <h2 className="text-lg font-semibold">Upload Files</h2>
+            <h2 className="text-lg font-semibold text-gray-900">Upload Files</h2>
           </div>
           
           <FileUploader 
@@ -325,20 +295,20 @@ export default function ConvertPage() {
           />
         </div>
 
-        <div className="bg-white rounded-lg shadow p-6 mb-6">
-          <h2 className="text-lg font-semibold mb-4">Convert from URL</h2>
+        <div className="bg-white rounded-xl shadow-sm border border-gray-100 p-6 mb-6">
+          <h2 className="text-lg font-semibold text-gray-900 mb-4">Convert from URL</h2>
           <div className="flex space-x-2">
             <input
               type="url"
               value={urlInput}
               onChange={(e) => setUrlInput(e.target.value)}
               placeholder="Enter URL to convert..."
-              className="flex-1 px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+              className="flex-1 px-3 py-2 border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary/50 focus:border-primary transition-colors"
             />
             <button
               onClick={handleUrlConvert}
               disabled={!urlInput.trim() || converting}
-              className="px-4 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700 disabled:bg-gray-400"
+              className="px-4 py-2 bg-gradient-to-r from-primary to-secondary text-white rounded-lg hover:shadow-lg transition-all duration-200 disabled:opacity-50 disabled:cursor-not-allowed"
             >
               Convert URL
             </button>

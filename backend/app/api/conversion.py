@@ -16,6 +16,8 @@ from app.services.api_service import APIService
 from app.services.enhanced_conversion_service import EnhancedConversionService
 from app.api.websocket import manager
 from app.services.cancel_manager import cancel_manager
+from app.services.metadata_service import MetadataService
+from app.services.langchain_vectorization_service import LangChainVectorizationService
 import logging
 
 logger = logging.getLogger(__name__)
@@ -25,6 +27,8 @@ router = APIRouter()
 conversion_service = ConversionService()
 api_service = APIService()
 enhanced_service = EnhancedConversionService()
+metadata_service = MetadataService()
+langchain_vectorization_service = LangChainVectorizationService()
 
 class URLConversionRequest(BaseModel):
     """URL変換リクエストモデル"""
@@ -504,12 +508,20 @@ async def list_converted_files():
                     except:
                         preview = "プレビューを読み込めません"
                     
+                    # Get metadata if available
+                    metadata = metadata_service.get_file_metadata(filename, "converted")
+                    relationship = metadata_service.get_file_relationship(filename)
+                    
                     files.append({
                         "filename": filename,
                         "size": stat.st_size,
                         "modified": datetime.fromtimestamp(stat.st_mtime).isoformat(),
                         "preview": preview,
-                        "size_formatted": f"{stat.st_size / 1024:.1f} KB" if stat.st_size < 1024*1024 else f"{stat.st_size / (1024*1024):.1f} MB"
+                        "size_formatted": f"{stat.st_size / 1024:.1f} KB" if stat.st_size < 1024*1024 else f"{stat.st_size / (1024*1024):.1f} MB",
+                        "original_filename": relationship.original_file.original_filename if relationship else None,
+                        "conversion_id": metadata.conversion_id if metadata else None,
+                        "is_vectorized": metadata.is_vectorized if metadata else False,
+                        "vector_chunks": metadata.vector_chunks if metadata else 0
                     })
             
             # Sort by modified date (newest first)
@@ -694,6 +706,73 @@ async def get_uploaded_file_content(filename: str):
         filename=filename
     )
 
+@router.get("/uploaded/preview/{filename}")
+async def preview_uploaded_file(filename: str):
+    """
+    Preview a file in browser (for browser-compatible files)
+    
+    Args:
+        filename: Name of the file to preview
+    
+    Returns:
+        FileResponse with inline disposition for browser preview
+    """
+    import os
+    import mimetypes
+    from fastapi.responses import FileResponse
+    
+    filepath = os.path.join("original", filename)
+    
+    if not os.path.exists(filepath):
+        raise HTTPException(status_code=404, detail="File not found")
+    
+    # Get mime type
+    mime_type, _ = mimetypes.guess_type(filename)
+    mime_type = mime_type or 'application/octet-stream'
+    
+    # Files that browsers can display
+    browser_viewable = [
+        'application/pdf',
+        'text/plain',
+        'text/html',
+        'text/css',
+        'text/javascript',
+        'application/javascript',
+        'application/json',
+        'application/xml',
+        'text/xml',
+        'image/jpeg',
+        'image/png',
+        'image/gif',
+        'image/svg+xml',
+        'image/webp',
+        'video/mp4',
+        'video/webm',
+        'audio/mpeg',
+        'audio/wav',
+        'audio/webm'
+    ]
+    
+    # Check if file type is viewable in browser
+    is_viewable = mime_type in browser_viewable or mime_type.startswith('text/') or mime_type.startswith('image/')
+    
+    if is_viewable:
+        # Return with inline disposition for browser preview
+        return FileResponse(
+            path=filepath,
+            media_type=mime_type,
+            headers={
+                "Content-Disposition": f'inline; filename="{filename}"'
+            }
+        )
+    else:
+        # For non-viewable files, force download
+        return FileResponse(
+            path=filepath,
+            media_type=mime_type,
+            filename=filename
+        )
+
 @router.delete("/uploaded/file/{filename}")
 async def delete_uploaded_file(filename: str):
     """
@@ -717,5 +796,153 @@ async def delete_uploaded_file(filename: str):
         return {"success": True, "message": f"File {filename} deleted successfully"}
     except Exception as e:
         logger.error(f"Error deleting uploaded file {filename}: {e}")
+        raise HTTPException(status_code=500, detail=str(e))
+
+# ========== LangChain Vectorization Endpoints ==========
+
+class VectorizeRequest(BaseModel):
+    """Vectorization request model"""
+    filenames: List[str]
+
+@router.post("/vectorize/files")
+async def vectorize_files(request: VectorizeRequest):
+    """
+    Vectorize selected markdown files using LangChain with semantic chunking
+    
+    Args:
+        request: List of filenames to vectorize
+    
+    Returns:
+        Vectorization results
+    """
+    try:
+        results = []
+        errors = []
+        
+        for filename in request.filenames:
+            try:
+                result = langchain_vectorization_service.vectorize_file(filename)
+                results.append(result)
+            except Exception as e:
+                errors.append({
+                    "filename": filename,
+                    "error": str(e)
+                })
+                logger.error(f"Failed to vectorize {filename}: {e}")
+        
+        return {
+            "success": True,
+            "total": len(request.filenames),
+            "successful": len(results),
+            "failed": len(errors),
+            "results": results,
+            "errors": errors
+        }
+    except Exception as e:
+        logger.error(f"Vectorization error: {e}")
+        raise HTTPException(status_code=500, detail=str(e))
+
+@router.post("/vectorize/all")
+async def vectorize_all_files():
+    """
+    Vectorize all markdown files in the converted directory
+    
+    Returns:
+        Summary of vectorization process
+    """
+    try:
+        result = langchain_vectorization_service.vectorize_all_files()
+        return {
+            "success": True,
+            **result
+        }
+    except Exception as e:
+        logger.error(f"Batch vectorization error: {e}")
+        raise HTTPException(status_code=500, detail=str(e))
+
+@router.get("/vectorize/stats")
+async def get_vector_stats():
+    """
+    Get statistics about the vector collection
+    
+    Returns:
+        Collection statistics
+    """
+    try:
+        stats = langchain_vectorization_service.get_collection_stats()
+        return {
+            "success": True,
+            **stats
+        }
+    except Exception as e:
+        logger.error(f"Error getting vector stats: {e}")
+        raise HTTPException(status_code=500, detail=str(e))
+
+@router.delete("/vectorize/file/{filename}")
+async def delete_vectorized_file(filename: str):
+    """
+    Delete a file from the vector database
+    
+    Args:
+        filename: Name of the file to delete from vector DB
+    
+    Returns:
+        Deletion status
+    """
+    try:
+        result = langchain_vectorization_service.delete_document(filename)
+        return {
+            "success": True,
+            **result
+        }
+    except Exception as e:
+        logger.error(f"Error deleting vectorized file {filename}: {e}")
+        raise HTTPException(status_code=500, detail=str(e))
+
+@router.post("/vectorize/reset")
+async def reset_vector_collection():
+    """
+    Reset the entire vector collection (delete all vectors)
+    
+    Returns:
+        Reset status
+    """
+    try:
+        result = langchain_vectorization_service.reset_collection()
+        return {
+            "success": True,
+            **result
+        }
+    except Exception as e:
+        logger.error(f"Error resetting vector collection: {e}")
+        raise HTTPException(status_code=500, detail=str(e))
+
+class VectorSearchRequest(BaseModel):
+    """Vector search request model"""
+    query: str
+    n_results: int = 5
+
+@router.post("/vectorize/search")
+async def search_vectors(request: VectorSearchRequest):
+    """
+    Search in the vector database
+    
+    Args:
+        request: Search query and number of results
+    
+    Returns:
+        Search results with relevance scores
+    """
+    try:
+        results = langchain_vectorization_service.search(
+            query=request.query,
+            n_results=request.n_results
+        )
+        return {
+            "success": True,
+            **results
+        }
+    except Exception as e:
+        logger.error(f"Vector search error: {e}")
         raise HTTPException(status_code=500, detail=str(e))
 

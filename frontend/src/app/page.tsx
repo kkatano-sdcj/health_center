@@ -21,6 +21,15 @@ export default function Home() {
                 <Link href="/convert" className="text-gray-700 hover:text-blue-600 px-3 py-2 rounded-md text-sm font-medium">
                   Convert
                 </Link>
+                <Link href="/storage" className="text-gray-700 hover:text-blue-600 px-3 py-2 rounded-md text-sm font-medium">
+                  Storage
+                </Link>
+                <Link href="/uploaded" className="text-gray-700 hover:text-blue-600 px-3 py-2 rounded-md text-sm font-medium">
+                  Uploaded
+                </Link>
+                <Link href="/rag" className="text-gray-700 hover:text-blue-600 px-3 py-2 rounded-md text-sm font-medium">
+                  RAG Query
+                </Link>
               </div>
               <div className="flex items-center space-x-4">
                 <span className="text-gray-400 cursor-default" title="現在のページ">
@@ -41,7 +50,7 @@ export default function Home() {
             AI-powered chat and document conversion tools
           </p>
           
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-6 mt-12">
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mt-12">
             <Link href="/aichat" className="block">
               <div className="bg-white rounded-lg shadow-md p-6 hover:shadow-lg transition-shadow">
                 <h3 className="text-xl font-semibold mb-2">AI Chat</h3>
@@ -74,6 +83,15 @@ export default function Home() {
                 <h3 className="text-xl font-semibold mb-2">Uploaded</h3>
                 <p className="text-gray-600">
                   View and manage uploaded original files
+                </p>
+              </div>
+            </Link>
+            
+            <Link href="/rag" className="block">
+              <div className="bg-white rounded-lg shadow-md p-6 hover:shadow-lg transition-shadow">
+                <h3 className="text-xl font-semibold mb-2">RAG Query</h3>
+                <p className="text-gray-600">
+                  Query vectorized documents with AI
                 </p>
               </div>
             </Link>

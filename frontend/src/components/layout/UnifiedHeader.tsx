@@ -1,11 +1,11 @@
 "use client";
 
 import React from "react";
-import { Search, Settings, Bell, Home, MessageSquare, FileText, FolderOpen, Upload, Sparkles } from "lucide-react";
+import { Search, Settings, Bell, Home, MessageSquare, FileText, FolderOpen, Upload, Sparkles, Database } from "lucide-react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 
-interface NavigationProps {
+interface UnifiedHeaderProps {
   user?: {
     name: string;
     role: string;
@@ -13,7 +13,7 @@ interface NavigationProps {
   };
 }
 
-export const Navigation: React.FC<NavigationProps> = ({ 
+export const UnifiedHeader: React.FC<UnifiedHeaderProps> = ({ 
   user = { name: "山田 太郎", role: "管理者" } 
 }) => {
   const pathname = usePathname();
@@ -23,6 +23,7 @@ export const Navigation: React.FC<NavigationProps> = ({
     { href: "/convert", label: "Convert", icon: FileText },
     { href: "/storage", label: "Storage", icon: FolderOpen },
     { href: "/uploaded", label: "Uploaded", icon: Upload },
+    { href: "/vectordb", label: "VectorDB", icon: Database },
     { href: "/rag", label: "RAG Query", icon: Sparkles },
   ];
   

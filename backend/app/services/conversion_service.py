@@ -14,6 +14,7 @@ from app.services.mock_firebase_service import MockFirebaseService
 from app.services.enhanced_conversion_service import EnhancedConversionService
 from app.services.legacy_converter import LegacyConverter
 from app.services.markitdown_ai_service import MarkItDownAIService
+from app.services.metadata_service import MetadataService
 import logging
 
 logger = logging.getLogger(__name__)
@@ -35,6 +36,8 @@ class ConversionService:
         self.legacy_converter = LegacyConverter()
         # MarkItDown AI service for LLM-integrated conversion
         self.markitdown_ai_service = MarkItDownAIService()
+        # Metadata service for file tracking
+        self.metadata_service = MetadataService()
         
     def is_supported_format(self, filename: str) -> bool:
         """ファイル形式がサポートされているか確認"""
@@ -169,6 +172,16 @@ class ConversionService:
             # 変換結果をファイルに保存
             with open(output_path, 'w', encoding='utf-8') as output_file:
                 output_file.write(markdown_content)
+            
+            # Create metadata relationship for tracking
+            try:
+                self.metadata_service.create_relationship(
+                    original_filepath=input_path,
+                    converted_filepath=output_path,
+                    conversion_id=conversion_id
+                )
+            except Exception as meta_error:
+                logger.warning(f"Failed to create metadata relationship: {meta_error}")
             
             # データベースに保存
             if save_to_db and self.enable_database:
@@ -412,6 +425,16 @@ class ConversionService:
             # 変換結果をファイルに保存
             with open(output_path, 'w', encoding='utf-8') as output_file:
                 output_file.write(markdown_content)
+            
+            # Create metadata relationship for batch processing
+            try:
+                self.metadata_service.create_relationship(
+                    original_filepath=file_path,
+                    converted_filepath=output_path,
+                    conversion_id=conversion_id
+                )
+            except Exception as meta_error:
+                logger.warning(f"Failed to create metadata in batch: {meta_error}")
             
             processing_time = time.time() - start_time
             
