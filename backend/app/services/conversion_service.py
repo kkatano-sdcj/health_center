@@ -23,8 +23,8 @@ class ConversionService:
     
     def __init__(self):
         self.supported_formats = [f.value for f in FileFormat]
-        self.upload_dir = "./uploads"
-        self.output_dir = "./converted"
+        self.upload_dir = "app/original"
+        self.output_dir = "converted"
         self.md = MarkItDown()
         # Firebase機能（モック実装）
         self.firebase_service = MockFirebaseService()

@@ -28,8 +28,8 @@ async def lifespan(app: FastAPI):
     await init_db()
     
     # MarkitDown用のディレクトリ作成
-    os.makedirs("./uploads", exist_ok=True)
-    os.makedirs("./converted", exist_ok=True)
+    os.makedirs("app/original", exist_ok=True)
+    os.makedirs("converted", exist_ok=True)
     
     yield
     # Shutdown

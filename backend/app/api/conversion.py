@@ -68,7 +68,7 @@ async def upload_and_convert(
         raise HTTPException(status_code=400, detail="ファイルサイズが100MBを超えています")
     
     # アップロードディレクトリにファイルを保存
-    upload_path = os.path.join("./uploads", file.filename)
+    upload_path = os.path.join("app/original", file.filename)
     try:
         with open(upload_path, "wb") as buffer:
             shutil.copyfileobj(file.file, buffer)
@@ -159,7 +159,8 @@ async def upload_and_convert(
             logger.error(f"Failed to load markdown content from file: {e}")
     
     # バックグラウンドでアップロードファイルを削除
-    background_tasks.add_task(os.remove, upload_path)
+    # Note: We keep the original files in the app/original directory
+    # background_tasks.add_task(os.remove, upload_path)
     
     logger.info(f"Returning result: status={result.status if result else None}, content_length={len(result.markdown_content) if result and result.markdown_content else 0}")
     
@@ -189,7 +190,7 @@ async def batch_convert(
         if not conversion_service.is_supported_format(file.filename):
             continue
         
-        upload_path = os.path.join("./uploads", file.filename)
+        upload_path = os.path.join("./app/original", file.filename)
         try:
             with open(upload_path, "wb") as buffer:
                 shutil.copyfileobj(file.file, buffer)
@@ -217,8 +218,9 @@ async def batch_convert(
                     logger.error(f"Markdown強化エラー: {e}")
     
     # バックグラウンドでアップロードファイルを削除
-    for path in upload_paths:
-        background_tasks.add_task(os.remove, path)
+    # Note: We keep the original files in the app/original directory
+    # for path in upload_paths:
+    #     background_tasks.add_task(os.remove, path)
     
     # 結果を集計
     successful = sum(1 for r in results if r.status == ConversionStatus.COMPLETED)
@@ -363,7 +365,7 @@ async def upload_and_convert_enhanced(
         raise HTTPException(status_code=400, detail="File size exceeds 100MB")
     
     # Save uploaded file
-    upload_path = os.path.join("./uploads", file.filename)
+    upload_path = os.path.join("./app/original", file.filename)
     try:
         with open(upload_path, "wb") as buffer:
             shutil.copyfileobj(file.file, buffer)
@@ -380,7 +382,8 @@ async def upload_and_convert_enhanced(
     )
     
     # Clean up uploaded file in background
-    background_tasks.add_task(os.remove, upload_path)
+    # Note: We keep the original files in the app/original directory
+    # background_tasks.add_task(os.remove, upload_path)
     
     return result
 
