@@ -103,8 +103,7 @@ export default function ConvertPage() {
       // Only set converting to false after a brief delay to ensure UI update
       setTimeout(() => {
         setConverting(false);
-        setFiles([]); // Clear file list after conversion completes
-        console.log('Conversion state set to false and files cleared');
+        console.log('Conversion state set to false');
       }, 100);
     }
   }, [progress, currentConversionId]);
@@ -181,11 +180,10 @@ export default function ConvertPage() {
           if (conversionResults[0].markdown_content) {
             console.log('📄 Markdown content available:', conversionResults[0].markdown_content.length, 'characters');
           }
-          // Set converting to false and clear files after a short delay to ensure UI updates
+          // Set converting to false after a short delay to ensure UI updates
           setTimeout(() => {
             setConverting(false);
-            setFiles([]); // Clear file list after successful conversion
-            console.log('🔄 Converting state set to false and files cleared (immediate completion)');
+            console.log('🔄 Converting state set to false (immediate completion)');
           }, 100);
         } else {
           console.log('⏳ Conversion status:', conversionResults[0]?.status, '- waiting for WebSocket updates');
@@ -245,7 +243,6 @@ export default function ConvertPage() {
       // 結果を設定（置き換え）
       setResults([result]);
       setCurrentConversionId(result.id);
-      setFiles([]); // Clear any selected files
     } catch (error) {
       console.error('URL conversion error:', error);
     } finally {

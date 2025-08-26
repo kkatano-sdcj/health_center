@@ -82,6 +82,20 @@ const FileUploader: React.FC<FileUploaderProps> = ({
     }
   }, [selectedFiles, onFilesSelect]);
 
+  // 変換が完了したらファイルリストをクリア
+  useEffect(() => {
+    if (!isConverting && selectedFiles.length > 0) {
+      // progressDataかprogressで完了状態を確認
+      const hasCompleted = progress?.status === 'completed' || 
+                          (progressData && Object.values(progressData).some((p: any) => p.status === 'completed'));
+      
+      if (hasCompleted) {
+        setSelectedFiles([]);
+        console.log('Cleared selected files after conversion completion');
+      }
+    }
+  }, [isConverting, progress, progressData, selectedFiles.length]);
+
   const handleUrlSubmit = () => {
     if (urlInput.trim()) {
       // Create a pseudo-file for URL
