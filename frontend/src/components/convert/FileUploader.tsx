@@ -85,16 +85,33 @@ const FileUploader: React.FC<FileUploaderProps> = ({
   // 変換が完了したらファイルリストをクリア
   useEffect(() => {
     if (!isConverting && selectedFiles.length > 0) {
-      // progressDataかprogressで完了状態を確認
-      const hasCompleted = progress?.status === 'completed' || 
-                          (progressData && Object.values(progressData).some((p: any) => p.status === 'completed'));
-      
-      if (hasCompleted) {
+      // 単一ファイルの場合
+      if (selectedFiles.length === 1 && progress?.status === 'completed') {
         setSelectedFiles([]);
-        console.log('Cleared selected files after conversion completion');
+        console.log('Cleared selected file after conversion completion');
+        return;
+      }
+      
+      // 複数ファイルの場合 - すべてのファイルが完了したかチェック
+      if (selectedFiles.length > 1 && progressData) {
+        const allFilesProcessed = selectedFiles.every(file => {
+          const fileProgress = Object.values(progressData).find((p: any) => 
+            p.file_name === file.name
+          );
+          return fileProgress && (
+            fileProgress.status === 'completed' || 
+            fileProgress.status === 'failed' ||
+            fileProgress.status === 'cancelled'
+          );
+        });
+        
+        if (allFilesProcessed) {
+          setSelectedFiles([]);
+          console.log('Cleared all selected files after batch conversion completion');
+        }
       }
     }
-  }, [isConverting, progress, progressData, selectedFiles.length]);
+  }, [isConverting, progress, progressData, selectedFiles]);
 
   const handleUrlSubmit = () => {
     if (urlInput.trim()) {
