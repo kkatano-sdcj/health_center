@@ -232,3 +232,50 @@ export interface StorageFileContent {
   modified: string;
   size_formatted: string;
 }
+
+// アップロード済みファイルAPI
+export const listUploadedFiles = async (): Promise<{ files: UploadedFile[]; total: number }> => {
+  const response = await api.get<{ files: UploadedFile[]; total: number }>('/api/v1/conversion/uploaded/list');
+  return response.data;
+};
+
+export const getUploadedFileContent = async (filename: string): Promise<UploadedFileContent | Blob> => {
+  const response = await api.get(`/api/v1/conversion/uploaded/file/${filename}`, {
+    responseType: 'arraybuffer',
+  });
+  
+  // Check if response is JSON (text content) or binary
+  const contentType = response.headers['content-type'];
+  if (contentType && contentType.includes('application/json')) {
+    const text = new TextDecoder().decode(response.data);
+    return JSON.parse(text) as UploadedFileContent;
+  }
+  
+  // Return as blob for binary files
+  return new Blob([response.data], { type: contentType });
+};
+
+export const deleteUploadedFile = async (filename: string): Promise<{ success: boolean; message: string }> => {
+  const response = await api.delete<{ success: boolean; message: string }>(`/api/v1/conversion/uploaded/file/${filename}`);
+  return response.data;
+};
+
+// Types for uploaded files
+export interface UploadedFile {
+  filename: string;
+  size: number;
+  modified: string;
+  preview: string;
+  size_formatted: string;
+  extension: string;
+  mime_type: string;
+}
+
+export interface UploadedFileContent {
+  filename: string;
+  content: string;
+  size: number;
+  modified: string;
+  size_formatted: string;
+  mime_type: string;
+}

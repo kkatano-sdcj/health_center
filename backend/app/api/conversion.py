@@ -587,3 +587,135 @@ async def delete_converted_file(filename: str):
         logger.error(f"Error deleting file {filename}: {e}")
         raise HTTPException(status_code=500, detail=str(e))
 
+@router.get("/uploaded/list")
+async def list_uploaded_files():
+    """
+    List all uploaded files in the original directory
+    
+    Returns:
+        List of file information with metadata
+    """
+    import os
+    from datetime import datetime
+    import mimetypes
+    
+    original_dir = "original"
+    files = []
+    
+    try:
+        if os.path.exists(original_dir):
+            for filename in os.listdir(original_dir):
+                if not filename.startswith('.'):
+                    filepath = os.path.join(original_dir, filename)
+                    stat = os.stat(filepath)
+                    
+                    # Get file extension and mime type
+                    _, ext = os.path.splitext(filename)
+                    mime_type, _ = mimetypes.guess_type(filename)
+                    
+                    # Read first 500 characters for preview (only for text files)
+                    preview = ""
+                    if mime_type and mime_type.startswith('text'):
+                        try:
+                            with open(filepath, 'r', encoding='utf-8') as f:
+                                content = f.read(500)
+                                preview = content[:497] + "..." if len(content) >= 500 else content
+                        except:
+                            preview = "プレビューを読み込めません"
+                    else:
+                        preview = f"{mime_type or 'unknown'} file"
+                    
+                    files.append({
+                        "filename": filename,
+                        "size": stat.st_size,
+                        "modified": datetime.fromtimestamp(stat.st_mtime).isoformat(),
+                        "preview": preview,
+                        "size_formatted": f"{stat.st_size / 1024:.1f} KB" if stat.st_size < 1024*1024 else f"{stat.st_size / (1024*1024):.1f} MB",
+                        "extension": ext[1:] if ext else "",
+                        "mime_type": mime_type or "application/octet-stream"
+                    })
+            
+            # Sort by modified date (newest first)
+            files.sort(key=lambda x: x["modified"], reverse=True)
+    except Exception as e:
+        logger.error(f"Error listing uploaded files: {e}")
+        raise HTTPException(status_code=500, detail=str(e))
+    
+    return {"files": files, "total": len(files)}
+
+@router.get("/uploaded/file/{filename}")
+async def get_uploaded_file_content(filename: str):
+    """
+    Get the content or download a specific uploaded file
+    
+    Args:
+        filename: Name of the file to retrieve
+    
+    Returns:
+        File content for text files, or file download for binary files
+    """
+    import os
+    from datetime import datetime
+    import mimetypes
+    from fastapi.responses import FileResponse
+    
+    filepath = os.path.join("original", filename)
+    
+    if not os.path.exists(filepath):
+        raise HTTPException(status_code=404, detail="File not found")
+    
+    # Get mime type
+    mime_type, _ = mimetypes.guess_type(filename)
+    
+    # For text files, return content
+    if mime_type and (mime_type.startswith('text') or mime_type in ['application/json', 'application/xml']):
+        try:
+            with open(filepath, 'r', encoding='utf-8') as f:
+                content = f.read()
+            
+            stat = os.stat(filepath)
+            
+            return {
+                "filename": filename,
+                "content": content,
+                "size": stat.st_size,
+                "modified": datetime.fromtimestamp(stat.st_mtime).isoformat(),
+                "size_formatted": f"{stat.st_size / 1024:.1f} KB" if stat.st_size < 1024*1024 else f"{stat.st_size / (1024*1024):.1f} MB",
+                "mime_type": mime_type
+            }
+        except UnicodeDecodeError:
+            # If text file can't be decoded, treat as binary
+            pass
+    
+    # For binary files or download, return FileResponse
+    return FileResponse(
+        path=filepath,
+        media_type=mime_type or 'application/octet-stream',
+        filename=filename
+    )
+
+@router.delete("/uploaded/file/{filename}")
+async def delete_uploaded_file(filename: str):
+    """
+    Delete an uploaded file from original directory
+    
+    Args:
+        filename: Name of the file to delete
+    
+    Returns:
+        Success status
+    """
+    import os
+    
+    filepath = os.path.join("original", filename)
+    
+    if not os.path.exists(filepath):
+        raise HTTPException(status_code=404, detail="File not found")
+    
+    try:
+        os.remove(filepath)
+        return {"success": True, "message": f"File {filename} deleted successfully"}
+    except Exception as e:
+        logger.error(f"Error deleting uploaded file {filename}: {e}")
+        raise HTTPException(status_code=500, detail=str(e))
+

@@ -1,16 +1,16 @@
 "use client";
 
 import React, { useState, useEffect } from 'react';
-import { listStorageFiles, getStorageFileContent, deleteStorageFile, downloadFile, StorageFile, StorageFileContent } from '@/services/api';
+import { listUploadedFiles, getUploadedFileContent, deleteUploadedFile, UploadedFile, UploadedFileContent } from '@/services/api';
 import Link from 'next/link';
-import { Home, Download, Eye, Trash2, FileText, Search, X } from 'lucide-react';
+import { Home, Download, Eye, Trash2, FileText, Search, X, File, Image, FileCode, FileArchive } from 'lucide-react';
 import PreviewModal from '@/components/convert/PreviewModal';
 
-export default function StoragePage() {
-  const [files, setFiles] = useState<StorageFile[]>([]);
+export default function UploadedPage() {
+  const [files, setFiles] = useState<UploadedFile[]>([]);
   const [loading, setLoading] = useState(true);
   const [searchTerm, setSearchTerm] = useState('');
-  const [selectedFile, setSelectedFile] = useState<StorageFileContent | null>(null);
+  const [selectedFile, setSelectedFile] = useState<UploadedFileContent | null>(null);
   const [previewOpen, setPreviewOpen] = useState(false);
   const [deleteConfirm, setDeleteConfirm] = useState<string | null>(null);
 
@@ -21,30 +21,60 @@ export default function StoragePage() {
   const loadFiles = async () => {
     setLoading(true);
     try {
-      const result = await listStorageFiles();
+      const result = await listUploadedFiles();
       setFiles(result.files);
     } catch (error) {
-      console.error('Failed to load files:', error);
+      console.error('Failed to load uploaded files:', error);
     } finally {
       setLoading(false);
     }
   };
 
-  const handlePreview = async (filename: string) => {
+  const getFileIcon = (mimeType: string, extension: string) => {
+    if (mimeType.startsWith('image/')) {
+      return <Image className="w-5 h-5" />;
+    } else if (mimeType.startsWith('text/') || extension === 'json' || extension === 'xml') {
+      return <FileCode className="w-5 h-5" />;
+    } else if (extension === 'zip' || extension === 'rar' || extension === '7z') {
+      return <FileArchive className="w-5 h-5" />;
+    } else {
+      return <File className="w-5 h-5" />;
+    }
+  };
+
+  const handlePreview = async (file: UploadedFile) => {
     try {
-      const content = await getStorageFileContent(filename);
-      setSelectedFile(content);
-      setPreviewOpen(true);
+      const content = await getUploadedFileContent(file.filename);
+      
+      if (content instanceof Blob) {
+        // For binary files, download instead of preview
+        handleDownload(file.filename, content);
+      } else {
+        // For text files, show preview
+        setSelectedFile(content);
+        setPreviewOpen(true);
+      }
     } catch (error) {
       console.error('Failed to preview file:', error);
       alert('ファイルのプレビューに失敗しました');
     }
   };
 
-  const handleDownload = async (filename: string) => {
+  const handleDownload = async (filename: string, blob?: Blob) => {
     try {
-      const blob = await downloadFile(filename);
-      const url = window.URL.createObjectURL(blob);
+      let downloadBlob = blob;
+      
+      if (!downloadBlob) {
+        const content = await getUploadedFileContent(filename);
+        if (content instanceof Blob) {
+          downloadBlob = content;
+        } else {
+          // Convert text content to blob
+          downloadBlob = new Blob([content.content], { type: 'text/plain' });
+        }
+      }
+      
+      const url = window.URL.createObjectURL(downloadBlob);
       const a = document.createElement('a');
       a.href = url;
       a.download = filename;
@@ -65,7 +95,7 @@ export default function StoragePage() {
     }
 
     try {
-      await deleteStorageFile(filename);
+      await deleteUploadedFile(filename);
       setDeleteConfirm(null);
       await loadFiles(); // Reload the file list
     } catch (error) {
@@ -76,7 +106,8 @@ export default function StoragePage() {
 
   const filteredFiles = files.filter(file =>
     file.filename.toLowerCase().includes(searchTerm.toLowerCase()) ||
-    file.preview.toLowerCase().includes(searchTerm.toLowerCase())
+    file.preview.toLowerCase().includes(searchTerm.toLowerCase()) ||
+    file.extension.toLowerCase().includes(searchTerm.toLowerCase())
   );
 
   const formatDate = (dateString: string) => {
@@ -106,10 +137,10 @@ export default function StoragePage() {
                 <Link href="/convert" className="text-gray-700 hover:text-blue-600 px-3 py-2 rounded-md text-sm font-medium">
                   Convert
                 </Link>
-                <Link href="/storage" className="text-blue-600 px-3 py-2 rounded-md text-sm font-medium">
+                <Link href="/storage" className="text-gray-700 hover:text-blue-600 px-3 py-2 rounded-md text-sm font-medium">
                   Storage
                 </Link>
-                <Link href="/uploaded" className="text-gray-700 hover:text-blue-600 px-3 py-2 rounded-md text-sm font-medium">
+                <Link href="/uploaded" className="text-blue-600 px-3 py-2 rounded-md text-sm font-medium">
                   Uploaded
                 </Link>
               </div>
@@ -125,8 +156,8 @@ export default function StoragePage() {
 
       <main className="max-w-7xl mx-auto py-8 px-4 sm:px-6 lg:px-8">
         <div className="mb-8">
-          <h1 className="text-3xl font-bold text-gray-900">Storage</h1>
-          <p className="mt-2 text-gray-600">変換済みファイルの管理</p>
+          <h1 className="text-3xl font-bold text-gray-900">Uploaded Files</h1>
+          <p className="mt-2 text-gray-600">アップロード済みファイルの管理</p>
         </div>
 
         {/* Search Bar */}
@@ -138,7 +169,7 @@ export default function StoragePage() {
                 type="text"
                 value={searchTerm}
                 onChange={(e) => setSearchTerm(e.target.value)}
-                placeholder="ファイル名または内容で検索..."
+                placeholder="ファイル名、拡張子、内容で検索..."
                 className="w-full pl-10 pr-4 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
               />
             </div>
@@ -165,7 +196,7 @@ export default function StoragePage() {
             <div className="p-8 text-center">
               <FileText className="w-12 h-12 text-gray-400 mx-auto" />
               <p className="mt-4 text-gray-600">
-                {searchTerm ? '検索結果がありません' : '変換済みファイルがありません'}
+                {searchTerm ? '検索結果がありません' : 'アップロード済みファイルがありません'}
               </p>
             </div>
           ) : (
@@ -174,11 +205,21 @@ export default function StoragePage() {
                 <div key={file.filename} className="p-6 hover:bg-gray-50 transition-colors">
                   <div className="flex items-start justify-between">
                     <div className="flex-1">
-                      <h3 className="text-lg font-medium text-gray-900 mb-1">
-                        {file.filename}
-                      </h3>
+                      <div className="flex items-center space-x-2 mb-1">
+                        <span className="text-gray-500">
+                          {getFileIcon(file.mime_type, file.extension)}
+                        </span>
+                        <h3 className="text-lg font-medium text-gray-900">
+                          {file.filename}
+                        </h3>
+                        {file.extension && (
+                          <span className="px-2 py-1 text-xs bg-gray-100 text-gray-700 rounded">
+                            .{file.extension}
+                          </span>
+                        )}
+                      </div>
                       <div className="text-sm text-gray-500 mb-2">
-                        {file.size_formatted} • {formatDate(file.modified)}
+                        {file.size_formatted} • {formatDate(file.modified)} • {file.mime_type}
                       </div>
                       <div className="text-sm text-gray-600 line-clamp-2">
                         {file.preview}
@@ -186,9 +227,9 @@ export default function StoragePage() {
                     </div>
                     <div className="flex items-center space-x-2 ml-4">
                       <button
-                        onClick={() => handlePreview(file.filename)}
+                        onClick={() => handlePreview(file)}
                         className="p-2 text-blue-600 hover:bg-blue-100 rounded-md transition-colors"
-                        title="プレビュー"
+                        title={file.mime_type.startsWith('text') ? 'プレビュー' : 'ダウンロード'}
                       >
                         <Eye className="w-5 h-5" />
                       </button>

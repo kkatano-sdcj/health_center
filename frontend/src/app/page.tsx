@@ -41,7 +41,7 @@ export default function Home() {
             AI-powered chat and document conversion tools
           </p>
           
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mt-12">
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-6 mt-12">
             <Link href="/aichat" className="block">
               <div className="bg-white rounded-lg shadow-md p-6 hover:shadow-lg transition-shadow">
                 <h3 className="text-xl font-semibold mb-2">AI Chat</h3>
@@ -65,6 +65,15 @@ export default function Home() {
                 <h3 className="text-xl font-semibold mb-2">Storage</h3>
                 <p className="text-gray-600">
                   Browse and manage converted files
+                </p>
+              </div>
+            </Link>
+            
+            <Link href="/uploaded" className="block">
+              <div className="bg-white rounded-lg shadow-md p-6 hover:shadow-lg transition-shadow">
+                <h3 className="text-xl font-semibold mb-2">Uploaded</h3>
+                <p className="text-gray-600">
+                  View and manage uploaded original files
                 </p>
               </div>
             </Link>
