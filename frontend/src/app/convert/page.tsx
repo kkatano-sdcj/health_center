@@ -49,8 +49,9 @@ export default function ConvertPage() {
         console.log('🔄 Auto-setting conversion ID from progress data:', progressIds[0]);
         setCurrentConversionId(progressIds[0]);
         
-        // Also create a result entry if we don't have one yet
-        if (results.length === 0) {
+        // Also create a result entry if we don't have one yet for this conversion
+        const hasResultForConversion = results.some(r => r.id === progressIds[0]);
+        if (!hasResultForConversion) {
           const progressEntry = progressData[progressIds[0]];
           if (progressEntry.file_name) {
             console.log('📝 Creating result entry from progress data');
@@ -60,7 +61,7 @@ export default function ConvertPage() {
               status: 'processing' as const,
               created_at: new Date().toISOString()
             };
-            setResults([tempResult]);
+            setResults(prevResults => [...prevResults, tempResult]);
           }
         }
       }
@@ -135,7 +136,8 @@ export default function ConvertPage() {
     }
     
     setConverting(true);
-    setResults([]); // Clear previous results
+    // Don't clear previous results - they should persist
+    // setResults([]); // Removed to keep previous results
     
     // Clear previous progress if any
     if (currentConversionId) {
@@ -167,8 +169,8 @@ export default function ConvertPage() {
           console.log('- Processing time:', result.processing_time);
         });
         
-        // 結果を設定（置き換え）
-        setResults(conversionResults);
+        // 結果を追加（既存の結果に追加）
+        setResults(prevResults => [...prevResults, ...conversionResults]);
         const newConversionId = conversionResults[0]?.id;
         console.log('Setting new conversion ID:', newConversionId);
         setCurrentConversionId(newConversionId || null);
@@ -240,8 +242,8 @@ export default function ConvertPage() {
     
     try {
       const result = await convertUrl(urlInput, false, useAiMode);
-      // 結果を設定（置き換え）
-      setResults([result]);
+      // 結果を追加（既存の結果に追加）
+      setResults(prevResults => [...prevResults, result]);
       setCurrentConversionId(result.id);
     } catch (error) {
       console.error('URL conversion error:', error);
