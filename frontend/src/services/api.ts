@@ -199,3 +199,36 @@ export const cancelConversion = async (conversionId: string): Promise<{ success:
   const response = await api.post<{ success: boolean; message: string }>(`/api/v1/conversion/cancel/${conversionId}`);
   return response.data;
 };
+
+// ストレージAPI - 変換済みファイルの管理
+export const listStorageFiles = async (): Promise<{ files: StorageFile[]; total: number }> => {
+  const response = await api.get<{ files: StorageFile[]; total: number }>('/api/v1/conversion/storage/list');
+  return response.data;
+};
+
+export const getStorageFileContent = async (filename: string): Promise<StorageFileContent> => {
+  const response = await api.get<StorageFileContent>(`/api/v1/conversion/storage/file/${filename}`);
+  return response.data;
+};
+
+export const deleteStorageFile = async (filename: string): Promise<{ success: boolean; message: string }> => {
+  const response = await api.delete<{ success: boolean; message: string }>(`/api/v1/conversion/storage/file/${filename}`);
+  return response.data;
+};
+
+// Types for storage
+export interface StorageFile {
+  filename: string;
+  size: number;
+  modified: string;
+  preview: string;
+  size_formatted: string;
+}
+
+export interface StorageFileContent {
+  filename: string;
+  content: string;
+  size: number;
+  modified: string;
+  size_formatted: string;
+}

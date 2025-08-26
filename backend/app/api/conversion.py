@@ -68,7 +68,7 @@ async def upload_and_convert(
         raise HTTPException(status_code=400, detail="ファイルサイズが100MBを超えています")
     
     # アップロードディレクトリにファイルを保存
-    upload_path = os.path.join("app/original", file.filename)
+    upload_path = os.path.join("original", file.filename)
     try:
         with open(upload_path, "wb") as buffer:
             shutil.copyfileobj(file.file, buffer)
@@ -473,4 +473,117 @@ async def convert_youtube_enhanced(
             logger.error(f"AI enhancement error: {e}")
     
     return result
+
+@router.get("/storage/list")
+async def list_converted_files():
+    """
+    List all converted files in the storage
+    
+    Returns:
+        List of file information with metadata
+    """
+    import os
+    from datetime import datetime
+    
+    converted_dir = "converted"
+    files = []
+    
+    try:
+        if os.path.exists(converted_dir):
+            for filename in os.listdir(converted_dir):
+                if filename.endswith('.md') and not filename.startswith('.'):
+                    filepath = os.path.join(converted_dir, filename)
+                    stat = os.stat(filepath)
+                    
+                    # Read first 500 characters for preview
+                    preview = ""
+                    try:
+                        with open(filepath, 'r', encoding='utf-8') as f:
+                            content = f.read(500)
+                            preview = content[:497] + "..." if len(content) >= 500 else content
+                    except:
+                        preview = "プレビューを読み込めません"
+                    
+                    files.append({
+                        "filename": filename,
+                        "size": stat.st_size,
+                        "modified": datetime.fromtimestamp(stat.st_mtime).isoformat(),
+                        "preview": preview,
+                        "size_formatted": f"{stat.st_size / 1024:.1f} KB" if stat.st_size < 1024*1024 else f"{stat.st_size / (1024*1024):.1f} MB"
+                    })
+            
+            # Sort by modified date (newest first)
+            files.sort(key=lambda x: x["modified"], reverse=True)
+    except Exception as e:
+        logger.error(f"Error listing files: {e}")
+        raise HTTPException(status_code=500, detail=str(e))
+    
+    return {"files": files, "total": len(files)}
+
+@router.get("/storage/file/{filename}")
+async def get_converted_file_content(filename: str):
+    """
+    Get the content of a specific converted file
+    
+    Args:
+        filename: Name of the file to retrieve
+    
+    Returns:
+        File content and metadata
+    """
+    import os
+    from datetime import datetime
+    
+    filepath = os.path.join("converted", filename)
+    
+    if not os.path.exists(filepath):
+        raise HTTPException(status_code=404, detail="File not found")
+    
+    if not filename.endswith('.md'):
+        raise HTTPException(status_code=400, detail="Only markdown files are supported")
+    
+    try:
+        with open(filepath, 'r', encoding='utf-8') as f:
+            content = f.read()
+        
+        stat = os.stat(filepath)
+        
+        return {
+            "filename": filename,
+            "content": content,
+            "size": stat.st_size,
+            "modified": datetime.fromtimestamp(stat.st_mtime).isoformat(),
+            "size_formatted": f"{stat.st_size / 1024:.1f} KB" if stat.st_size < 1024*1024 else f"{stat.st_size / (1024*1024):.1f} MB"
+        }
+    except Exception as e:
+        logger.error(f"Error reading file {filename}: {e}")
+        raise HTTPException(status_code=500, detail=str(e))
+
+@router.delete("/storage/file/{filename}")
+async def delete_converted_file(filename: str):
+    """
+    Delete a converted file from storage
+    
+    Args:
+        filename: Name of the file to delete
+    
+    Returns:
+        Success status
+    """
+    import os
+    
+    filepath = os.path.join("converted", filename)
+    
+    if not os.path.exists(filepath):
+        raise HTTPException(status_code=404, detail="File not found")
+    
+    if not filename.endswith('.md'):
+        raise HTTPException(status_code=400, detail="Only markdown files can be deleted")
+    
+    try:
+        os.remove(filepath)
+        return {"success": True, "message": f"File {filename} deleted successfully"}
+    except Exception as e:
+        logger.error(f"Error deleting file {filename}: {e}")
+        raise HTTPException(status_code=500, detail=str(e))
 

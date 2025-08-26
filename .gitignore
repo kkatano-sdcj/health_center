@@ -109,6 +109,6 @@ private/
 # Backend specific
 backend/uploads/
 backend/converted/
-backend/app/original/
+backend/original/
 backend/firebase_storage/
 backend/data/

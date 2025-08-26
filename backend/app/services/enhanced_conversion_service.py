@@ -54,7 +54,7 @@ class EnhancedConversionService:
     """Enhanced file conversion service with support for various formats"""
     
     def __init__(self):
-        self.upload_dir = "app/original"
+        self.upload_dir = "original"
         self.output_dir = "converted"
         self.md = MarkItDown()
         self.firebase_service = MockFirebaseService()
