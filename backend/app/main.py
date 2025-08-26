@@ -80,6 +80,10 @@ app.include_router(search.router, prefix="/api/v1/search", tags=["search"])
 app.include_router(conversion.router, prefix="/api/v1/conversion", tags=["conversion"])
 app.include_router(api_settings.router, prefix="/api/v1/settings", tags=["settings"])
 
+# Vectorization APIルーターの登録
+from app.api import vectorization
+app.include_router(vectorization.router, tags=["vectorization"])
+
 # WebSocketエンドポイント
 @app.websocket("/ws")
 async def websocket_route(websocket: WebSocket):

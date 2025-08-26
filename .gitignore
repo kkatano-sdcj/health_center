@@ -110,5 +110,6 @@ private/
 backend/uploads/
 backend/converted/
 backend/original/
+backend/Vectorized/
 backend/firebase_storage/
 backend/data/
