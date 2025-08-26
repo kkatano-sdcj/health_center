@@ -5,6 +5,7 @@ markitdownライブラリを使用してファイルをMarkdown形式に変換
 import os
 import time
 import uuid
+from datetime import datetime
 from typing import Optional, Dict, Any, List
 from markitdown import MarkItDown
 from app.models.data_models import ConversionResult, ConversionStatus, FileFormat
@@ -128,9 +129,26 @@ class ConversionService:
                 logger.debug(f"Sending initial progress for conversion_id: {conversion_id}")
                 await progress_callback(conversion_id, 10, "processing", "ファイルを検証中...", os.path.basename(input_path))
             
-            # 出力ファイルパスの生成
+            # 出力ファイルパスの生成（タイムスタンプを追加してユニークにする）
             os.makedirs(self.output_dir, exist_ok=True)  # ディレクトリが存在することを確認
-            output_path = os.path.join(self.output_dir, output_filename)
+            
+            # 既存のファイルがある場合はタイムスタンプを追加
+            base_name, ext = os.path.splitext(output_filename)
+            timestamp = datetime.now().strftime('%Y%m%d_%H%M%S')
+            unique_filename = f"{base_name}_{timestamp}{ext}"
+            output_path = os.path.join(self.output_dir, unique_filename)
+            
+            # 既存ファイルの権限問題を回避するため、新しいファイル名を使用
+            if os.path.exists(os.path.join(self.output_dir, output_filename)):
+                try:
+                    # 既存ファイルを削除しようとする（権限があれば）
+                    os.remove(os.path.join(self.output_dir, output_filename))
+                    output_path = os.path.join(self.output_dir, output_filename)
+                    unique_filename = output_filename
+                except (OSError, PermissionError):
+                    # 権限エラーの場合はタイムスタンプ付きファイル名を使用
+                    logger.warning(f"Cannot overwrite existing file, using timestamped filename: {unique_filename}")
+                    pass
             
             if progress_callback:
                 await progress_callback(conversion_id, 50, "processing", "変換中...", os.path.basename(input_path))
@@ -177,7 +195,7 @@ class ConversionService:
             result_obj = ConversionResult(
                 id=conversion_id,
                 input_file=os.path.basename(input_path),
-                output_file=output_filename,
+                output_file=unique_filename,  # タイムスタンプ付きファイル名を使用
                 status=ConversionStatus.COMPLETED,
                 processing_time=processing_time,
                 markdown_content=markdown_content
@@ -368,8 +386,30 @@ class ConversionService:
             result = md_instance.convert(file_path)
             markdown_content = result.text_content
             
+            # 出力ファイルパスの生成（権限問題を回避）
+            os.makedirs(self.output_dir, exist_ok=True)
+            
+            # タイムスタンプ付きのファイル名を生成
+            base_name, ext = os.path.splitext(output_filename)
+            timestamp = datetime.now().strftime('%Y%m%d_%H%M%S')
+            unique_filename = f"{base_name}_{timestamp}{ext}"
+            output_path = os.path.join(self.output_dir, unique_filename)
+            
+            # 既存ファイルがある場合の処理
+            original_path = os.path.join(self.output_dir, output_filename)
+            if os.path.exists(original_path):
+                try:
+                    os.remove(original_path)
+                    output_path = original_path
+                    unique_filename = output_filename
+                except (OSError, PermissionError):
+                    logger.warning(f"Cannot overwrite {output_filename}, using {unique_filename}")
+            else:
+                # 既存ファイルがなければ元のファイル名を使用
+                output_path = original_path
+                unique_filename = output_filename
+            
             # 変換結果をファイルに保存
-            output_path = os.path.join(self.output_dir, output_filename)
             with open(output_path, 'w', encoding='utf-8') as output_file:
                 output_file.write(markdown_content)
             
@@ -378,7 +418,7 @@ class ConversionService:
             return ConversionResult(
                 id=conversion_id,
                 input_file=os.path.basename(file_path),
-                output_file=output_filename,
+                output_file=unique_filename,
                 status=ConversionStatus.COMPLETED,
                 processing_time=processing_time,
                 markdown_content=markdown_content
