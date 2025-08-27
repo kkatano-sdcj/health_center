@@ -223,16 +223,23 @@
 }
 
 .tab:hover {
-  background-color: #ebebeb;
-  border-color: #d0d0d0;
+  background-color: #f3f4f6;
+  border-color: #6366f1;
+  color: #6366f1;
 }
 
 .tab.active {
-  background-color: #4a90e2;
+  background: linear-gradient(135deg, #6366f1 0%, #8b5cf6 100%);
   color: white;
-  border-color: #4a90e2;
+  border-color: #6366f1;
   font-weight: 600;
-  box-shadow: 0 2px 8px rgba(74, 144, 226, 0.2);
+  box-shadow: 0 2px 8px rgba(99, 102, 241, 0.3);
+}
+
+.tab.active:hover {
+  background: linear-gradient(135deg, #6366f1 0%, #8b5cf6 100%);
+  color: white;
+  border-color: #6366f1;
 }
 
 .url-input-container {

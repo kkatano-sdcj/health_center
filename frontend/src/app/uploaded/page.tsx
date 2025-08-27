@@ -359,14 +359,14 @@ export default function UploadedPage() {
                         </button>
                         <button
                           onClick={() => handleDelete(file.filename)}
-                          className={`p-2 rounded-lg transition-colors ${
+                          className={`px-3 py-1.5 rounded-lg transition-colors text-sm font-medium ${
                             deleteConfirm === file.filename
                               ? 'text-white bg-gradient-to-r from-red-500 to-red-600 hover:shadow-md'
                               : 'text-red-600 hover:bg-red-50'
                           }`}
                           title={deleteConfirm === file.filename ? 'クリックして削除を確認' : '削除'}
                         >
-                          <Trash2 className="w-5 h-5" />
+                          削除
                         </button>
                         {deleteConfirm === file.filename && (
                           <button

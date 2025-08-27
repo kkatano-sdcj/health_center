@@ -19,6 +19,9 @@ export interface Message {
   metadata?: {
     relatedDocsCount?: number;
     confidence?: number;
+    processingTime?: number;
+    usedReranking?: boolean;
+    isError?: boolean;
   };
 }
 

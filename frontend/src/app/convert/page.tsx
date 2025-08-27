@@ -53,14 +53,21 @@ export default function ConvertPage() {
         if (!hasResultForConversion) {
           const progressEntry = progressData[progressIds[0]];
           if (progressEntry.file_name) {
-            console.log('📝 Creating result entry from progress data');
+            console.log('📝 Creating temporary result entry from progress data');
             const tempResult: ConversionResult = {
               id: progressIds[0],
               input_file: progressEntry.file_name,
               status: 'processing' as const,
               created_at: new Date().toISOString()
             };
-            setResults(prevResults => [...prevResults, tempResult]);
+            setResults(prevResults => {
+              // Double-check to prevent race conditions
+              const alreadyExists = prevResults.some(r => r.id === progressIds[0]);
+              if (!alreadyExists) {
+                return [...prevResults, tempResult];
+              }
+              return prevResults;
+            });
           }
         }
       }
@@ -168,8 +175,23 @@ export default function ConvertPage() {
           console.log('- Processing time:', result.processing_time);
         });
         
-        // 結果を追加（既存の結果に追加）
-        setResults(prevResults => [...prevResults, ...conversionResults]);
+        // 結果を追加（重複を避けるため、既存のIDをチェック）
+        setResults(prevResults => {
+          const existingIds = new Set(prevResults.map(r => r.id));
+          const newResults = conversionResults.filter(r => !existingIds.has(r.id));
+          
+          if (newResults.length > 0) {
+            console.log(`Adding ${newResults.length} new results`);
+            return [...prevResults, ...newResults];
+          } else {
+            console.log('Updating existing results instead of adding duplicates');
+            // Update existing results with new data
+            return prevResults.map(existingResult => {
+              const updatedResult = conversionResults.find(r => r.id === existingResult.id);
+              return updatedResult || existingResult;
+            });
+          }
+        });
         const newConversionId = conversionResults[0]?.id;
         console.log('Setting new conversion ID:', newConversionId);
         setCurrentConversionId(newConversionId || null);
@@ -241,8 +263,18 @@ export default function ConvertPage() {
     
     try {
       const result = await convertUrl(urlInput, false, useAiMode);
-      // 結果を追加（既存の結果に追加）
-      setResults(prevResults => [...prevResults, result]);
+      // 結果を追加（重複を避けるため、既存のIDをチェック）
+      setResults(prevResults => {
+        const existingIndex = prevResults.findIndex(r => r.id === result.id);
+        if (existingIndex === -1) {
+          return [...prevResults, result];
+        } else {
+          // Update existing result
+          const updatedResults = [...prevResults];
+          updatedResults[existingIndex] = result;
+          return updatedResults;
+        }
+      });
       setCurrentConversionId(result.id);
     } catch (error) {
       console.error('URL conversion error:', error);

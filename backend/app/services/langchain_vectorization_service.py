@@ -352,14 +352,15 @@ class LangChainVectorizationService:
             doc_count = collection.count()
             
             # Get unique source files
-            # Note: This is a simplified version, actual implementation may vary
             unique_files = set()
             
-            # Sample some documents to get unique filenames
-            sample_results = self.vector_store.similarity_search("", k=min(100, doc_count))
-            for doc in sample_results:
-                if doc.metadata and 'source_filename' in doc.metadata:
-                    unique_files.add(doc.metadata['source_filename'])
+            # Get ALL documents to ensure accurate count
+            # Use a higher k value to get all documents
+            if doc_count > 0:
+                sample_results = self.vector_store.similarity_search("", k=doc_count)
+                for doc in sample_results:
+                    if doc.metadata and 'source_filename' in doc.metadata:
+                        unique_files.add(doc.metadata['source_filename'])
             
             return {
                 "collection_name": "converted_documents_langchain",
@@ -399,12 +400,24 @@ class LangChainVectorizationService:
             
             if results:
                 # Extract IDs and delete
-                # Note: Chroma's delete functionality may vary by version
                 chunk_ids = [f"{doc_id}_{i}" for i in range(len(results))]
                 
-                # Delete chunks (implementation depends on Chroma version)
-                # This is a placeholder - actual implementation may need adjustment
-                logger.info(f"Would delete {len(chunk_ids)} chunks for {filename}")
+                # Actually delete the documents from ChromaDB
+                # ChromaDB's delete method requires IDs
+                try:
+                    self.vector_store._collection.delete(
+                        ids=chunk_ids
+                    )
+                    logger.info(f"Deleted {len(chunk_ids)} chunks for {filename}")
+                except Exception as delete_error:
+                    logger.warning(f"Direct deletion failed, trying alternative method: {delete_error}")
+                    # Alternative: delete by filter
+                    self.vector_store._collection.delete(
+                        where={"doc_id": doc_id}
+                    )
+                
+                # Persist the changes
+                self.vector_store.persist()
                 
                 # Update metadata service
                 self.metadata_service.update_vectorization_status(

@@ -2,7 +2,7 @@
 
 import React, { useState, useEffect } from 'react';
 import { UnifiedHeader } from '@/components/layout/UnifiedHeader';
-import { Search, Database, FileText, BarChart, Loader, RefreshCw, Trash2 } from 'lucide-react';
+import { Search, Database, FileText, BarChart, Loader, RefreshCw, Trash2, X, CheckSquare, Square } from 'lucide-react';
 
 interface VectorStats {
   collection_name: string;
@@ -33,6 +33,9 @@ export default function VectorDBPage() {
   const [loading, setLoading] = useState(false);
   const [statsLoading, setStatsLoading] = useState(true);
   const [numResults, setNumResults] = useState(5);
+  const [selectedDocs, setSelectedDocs] = useState<Set<string>>(new Set());
+  const [deleteConfirm, setDeleteConfirm] = useState<string | null>(null);
+  const [deleting, setDeleting] = useState(false);
 
   useEffect(() => {
     loadStats();
@@ -86,6 +89,102 @@ export default function VectorDBPage() {
     }
   };
 
+  const handleDeleteDocument = async (filename: string) => {
+    if (deleteConfirm !== filename) {
+      setDeleteConfirm(filename);
+      return;
+    }
+
+    setDeleting(true);
+    try {
+      const response = await fetch(`http://localhost:8000/api/v1/conversion/vectorize/file/${encodeURIComponent(filename)}`, {
+        method: 'DELETE',
+      });
+
+      if (response.ok) {
+        alert(`${filename} を削除しました`);
+        setDeleteConfirm(null);
+        await loadStats();
+        // Clear search results if any
+        setSearchResults([]);
+        // Remove from selected if it was selected
+        const newSelected = new Set(selectedDocs);
+        newSelected.delete(filename);
+        setSelectedDocs(newSelected);
+      } else {
+        alert('削除に失敗しました');
+      }
+    } catch (error) {
+      console.error('Delete error:', error);
+      alert('削除中にエラーが発生しました');
+    } finally {
+      setDeleting(false);
+    }
+  };
+
+  const handleBatchDelete = async () => {
+    if (selectedDocs.size === 0) {
+      alert('削除するドキュメントを選択してください');
+      return;
+    }
+
+    if (!confirm(`選択した${selectedDocs.size}件のドキュメントを削除しますか？この操作は取り消せません。`)) {
+      return;
+    }
+
+    setDeleting(true);
+    const errors = [];
+    const successes = [];
+
+    for (const filename of Array.from(selectedDocs)) {
+      try {
+        const response = await fetch(`http://localhost:8000/api/v1/conversion/vectorize/file/${encodeURIComponent(filename)}`, {
+          method: 'DELETE',
+        });
+
+        if (response.ok) {
+          successes.push(filename);
+        } else {
+          errors.push(filename);
+        }
+      } catch (error) {
+        errors.push(filename);
+      }
+    }
+
+    if (successes.length > 0) {
+      alert(`${successes.length}件のドキュメントを削除しました`);
+    }
+    if (errors.length > 0) {
+      alert(`${errors.length}件の削除に失敗しました`);
+    }
+
+    setSelectedDocs(new Set());
+    await loadStats();
+    setSearchResults([]);
+    setDeleting(false);
+  };
+
+  const toggleDocSelection = (filename: string) => {
+    const newSelected = new Set(selectedDocs);
+    if (newSelected.has(filename)) {
+      newSelected.delete(filename);
+    } else {
+      newSelected.add(filename);
+    }
+    setSelectedDocs(newSelected);
+  };
+
+  const toggleSelectAll = () => {
+    if (stats?.documents) {
+      if (selectedDocs.size === stats.documents.length) {
+        setSelectedDocs(new Set());
+      } else {
+        setSelectedDocs(new Set(stats.documents));
+      }
+    }
+  };
+
   const handleReset = async () => {
     if (!confirm('ベクトルDBのすべてのデータを削除しますか？この操作は取り消せません。')) {
       return;
@@ -101,6 +200,7 @@ export default function VectorDBPage() {
         alert('ベクトルDBをリセットしました');
         await loadStats();
         setSearchResults([]);
+        setSelectedDocs(new Set());
       } else {
         alert('リセットに失敗しました');
       }
@@ -195,15 +295,76 @@ export default function VectorDBPage() {
 
           {stats && stats.documents.length > 0 && (
             <div className="mt-4 pt-4 border-t border-gray-200">
-              <div className="text-sm text-gray-600 mb-2">登録済みドキュメント:</div>
-              <div className="flex flex-wrap gap-2">
-                {stats.documents.map((doc, index) => (
-                  <span
-                    key={index}
-                    className="px-3 py-1 bg-gray-100 text-gray-700 rounded-full text-sm"
+              <div className="flex items-center justify-between mb-3">
+                <div className="text-sm text-gray-600">登録済みドキュメント:</div>
+                <div className="flex items-center gap-2">
+                  <button
+                    onClick={toggleSelectAll}
+                    className="text-sm text-primary hover:text-primary/80 flex items-center gap-1"
                   >
-                    {doc}
-                  </span>
+                    {selectedDocs.size === stats.documents.length ? (
+                      <CheckSquare className="w-4 h-4" />
+                    ) : (
+                      <Square className="w-4 h-4" />
+                    )}
+                    すべて選択
+                  </button>
+                  {selectedDocs.size > 0 && (
+                    <button
+                      onClick={handleBatchDelete}
+                      disabled={deleting}
+                      className="px-3 py-1 bg-red-100 text-red-700 hover:bg-red-200 rounded-md text-sm flex items-center gap-1 disabled:opacity-50"
+                    >
+                      <Trash2 className="w-3 h-3" />
+                      選択削除 ({selectedDocs.size})
+                    </button>
+                  )}
+                </div>
+              </div>
+              <div className="space-y-2">
+                {stats.documents.map((doc, index) => (
+                  <div
+                    key={index}
+                    className="flex items-center justify-between p-2 bg-gray-50 hover:bg-gray-100 rounded-lg transition-colors"
+                  >
+                    <div className="flex items-center gap-2">
+                      <button
+                        onClick={() => toggleDocSelection(doc)}
+                        className="text-gray-500 hover:text-primary"
+                      >
+                        {selectedDocs.has(doc) ? (
+                          <CheckSquare className="w-4 h-4" />
+                        ) : (
+                          <Square className="w-4 h-4" />
+                        )}
+                      </button>
+                      <FileText className="w-4 h-4 text-gray-500" />
+                      <span className="text-sm text-gray-700 truncate max-w-md" title={doc}>
+                        {doc}
+                      </span>
+                    </div>
+                    <button
+                      onClick={() => handleDeleteDocument(doc)}
+                      disabled={deleting}
+                      className={`px-2 py-0.5 rounded transition-colors text-xs font-medium ${
+                        deleteConfirm === doc
+                          ? 'bg-red-600 text-white hover:bg-red-700'
+                          : 'text-red-600 hover:bg-red-50'
+                      } disabled:opacity-50`}
+                      title={deleteConfirm === doc ? 'クリックして削除を確認' : '削除'}
+                    >
+                      削除
+                    </button>
+                    {deleteConfirm === doc && (
+                      <button
+                        onClick={() => setDeleteConfirm(null)}
+                        className="p-1 text-gray-600 hover:bg-gray-200 rounded transition-colors ml-1"
+                        title="キャンセル"
+                      >
+                        <X className="w-4 h-4" />
+                      </button>
+                    )}
+                  </div>
                 ))}
               </div>
             </div>

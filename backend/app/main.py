@@ -88,6 +88,10 @@ app.include_router(vectorization.router, tags=["vectorization"])
 from app.api import rag
 app.include_router(rag.router, tags=["rag"])
 
+# AI Chat APIルーターの登録
+from app.api import aichat
+app.include_router(aichat.router, prefix="/api/v1/aichat", tags=["aichat"])
+
 # WebSocketエンドポイント
 @app.websocket("/ws")
 async def websocket_route(websocket: WebSocket):
