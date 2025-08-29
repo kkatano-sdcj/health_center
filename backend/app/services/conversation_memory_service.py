@@ -104,7 +104,7 @@ AIアシスタント: 会話履歴を踏まえて、適切に応答します。"
         logger.info(f"Created new thread: {thread_id}")
         return self.get_thread_info(thread_id)
     
-    def add_message(self, thread_id: str, role: str, content: str) -> bool:
+    def add_message(self, thread_id: str, role: str, content: str, metadata: Optional[Dict[str, Any]] = None) -> bool:
         """
         Add a message to a conversation thread
         
@@ -132,11 +132,17 @@ AIアシスタント: 会話履歴を踏まえて、適切に応答します。"
             return False
         
         # Add to messages list
-        thread["messages"].append({
+        message_data = {
             "role": role,
             "content": content,
             "timestamp": datetime.now().isoformat()
-        })
+        }
+        
+        # Add metadata if provided
+        if metadata:
+            message_data["metadata"] = metadata
+            
+        thread["messages"].append(message_data)
         
         # Update metadata
         thread["message_count"] += 1
@@ -163,6 +169,22 @@ AIアシスタント: 会話履歴を踏まえて、適切に応答します。"
                 return None
         
         return self.conversations[thread_id]["memory"]
+    
+    def get_messages(self, thread_id: str) -> List[Dict[str, Any]]:
+        """
+        Get all messages from a thread
+        
+        Args:
+            thread_id: Thread identifier
+            
+        Returns:
+            List of messages with metadata
+        """
+        if thread_id not in self.conversations:
+            if not self._load_thread(thread_id):
+                return []
+        
+        return self.conversations[thread_id]["messages"]
     
     def get_context(self, thread_id: str, max_messages: int = 10) -> str:
         """

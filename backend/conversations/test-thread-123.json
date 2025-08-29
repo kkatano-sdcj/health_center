@@ -1,0 +1,97 @@
+{
+  "id": "test-thread-123",
+  "title": "アレルギーについて教えてください",
+  "created_at": "2025-08-29T16:09:04.333561",
+  "updated_at": "2025-08-29T16:09:43.069275",
+  "message_count": 4,
+  "messages": [
+    {
+      "role": "human",
+      "content": "アレルギーについて教えてください",
+      "timestamp": "2025-08-29T16:09:04.333900"
+    },
+    {
+      "role": "ai",
+      "content": "アレルギーに関する情報は以下の通りです。\n\n### アレルギーの種類\n\n| アレルギーの種類       | 説明                   |\n|---------------------|----------------------|\n| 薬剤アレルギー       | 薬に対するアレルギー反応 |\n| 食物アレルギー       | 食品に対するアレルギー反応 |\n| 造影剤アレルギー     | 造影剤に対するアレルギー反応 |\n| その他アレルギー     | 上記以外のアレルギー反応   |\n\nこれらのアレルギーは、患者の状態を把握するためにシステム内で管理され、可視化されることが重要です [1]。\n\n### アレルギー確認の方法\n\n- アレルギーがない場合は、確認日を記録することが求められます。\n- 具体的には、以下のような確認が行われます。\n\n| アレルギーの種類 | 確認内容                     |\n|-----------------|---------------------------|\n| 薬剤アレルギー   | アレルギー薬剤なし確認日: [確認日] |\n| 食物アレルギー   | アレルギー食物なし確認日: [確認日] |\n\nこのように、アレルギーの有無を確認することで、患者の安全を確保することができます [3]。\n\n### システム開発・保守に関する対処方法\n\n- アレルギー情報の管理機能を実装する際は、各アレルギーの種類を明確に定義し、ユーザーが容易に入力・確認できるインターフェースを提供することが重要です。\n  \n- 確認日などの重要な情報を記録するためのデータベース設計を行い、必要に応じてデータの整合性を保つためのバリデーションを実装することが推奨されます。\n\n文書に記載がない情報についてはお答えできませんので、ご了承ください。",
+      "timestamp": "2025-08-29T16:09:04.334108",
+      "metadata": {
+        "sources": [
+          {
+            "index": 1,
+            "filename": "CCB.公開マスタ設定設計書_ウィジェット(アレルギー).md",
+            "chunk_index": 2,
+            "total_chunks": 8,
+            "similarity": 0.3856576681137085,
+            "reranking_score": 0.49664401962643584,
+            "excerpt": "![Image 1](28902183png.jpg)\n\n**📝 画像内のテキスト:**\n- アレルギー\n\n| PatientStatus | HeaderText | Visibility |\n| --- | --- | --- |\n| DrugAllergy | 薬剤 | Visible |\n| FoodAllergy | 食物 | Visible |\n| TabooContrastMediu..."
+          },
+          {
+            "index": 2,
+            "filename": "CAA.公開マスタ設定設計書_患者バー_20250826_183953.md",
+            "chunk_index": 0,
+            "total_chunks": 181,
+            "similarity": 0.3769161105155945,
+            "reranking_score": 0.4474331108729045,
+            "excerpt": "<!-- Slide number: 1 -->\n# 患者バー\n第10.0版\n\n### Notes:"
+          },
+          {
+            "index": 3,
+            "filename": "CAA.公開マスタ設定設計書_患者バー_20250826_183953.md",
+            "chunk_index": 75,
+            "total_chunks": 181,
+            "similarity": 0.42066383361816406,
+            "reranking_score": 0.44409886678059896,
+            "excerpt": "| NoAllergy | 2 |  | “アレルギー薬剤なし　確認日:\"+PatientBar:NoDrugAllergyConfrimation:ConfirmationDate | M |  | アレルギーなしを確認 |\n| NoAllergy | 3 |  | “アレルギー食物なし　確認日:\"+PatientBar:NoFoodAllergyConfrimation:Confirmatio..."
+          }
+        ],
+        "search_type": "database",
+        "search_results": 10,
+        "used_reranking": true
+      }
+    },
+    {
+      "role": "human",
+      "content": "それは薬剤アレルギーと食物アレルギーの両方ですか？",
+      "timestamp": "2025-08-29T16:09:43.068765"
+    },
+    {
+      "role": "ai",
+      "content": "文書に記載されている情報によれば、薬剤アレルギーと食物アレルギーはそれぞれ異なる種類のアレルギーとして管理されています。\n\n### アレルギーの種類\n\n| アレルギーの種類       | 説明                   |\n|---------------------|----------------------|\n| 薬剤アレルギー       | 薬に対するアレルギー反応 |\n| 食物アレルギー       | 食品に対するアレルギー反応 |\n\nこのように、薬剤アレルギーと食物アレルギーは別々に管理されており、患者の状態を把握するために重要です [1][2]。\n\n### システム開発・保守に関する対処方法\n\n- アレルギー情報を管理する際には、薬剤アレルギーと食物アレルギーを明確に区別し、ユーザーが容易に入力・確認できるインターフェースを提供することが重要です。\n\n- 各アレルギーの確認日などの重要な情報を記録するためのデータベース設計を行い、データの整合性を保つためのバリデーションを実装することが推奨されます。\n\n文書に記載がない情報についてはお答えできませんので、ご了承ください。",
+      "timestamp": "2025-08-29T16:09:43.069265",
+      "metadata": {
+        "sources": [
+          {
+            "index": 1,
+            "filename": "CAA.公開マスタ設定設計書_患者バー_20250826_183953.md",
+            "chunk_index": 46,
+            "total_chunks": 181,
+            "similarity": 0.33349937200546265,
+            "reranking_score": 0.7172886376910739,
+            "excerpt": "### Notes:\n\n<!-- Slide number: 35 -->\n1.16 設定説明 プロファイルアイコン設定(8)\n■標準出荷値\n| InfoKey | チェック内容 | アイコン名 |\n| --- | --- | --- |\n| Infection | 感染症 | 感染症 |\n| NegativeInfection | 感染症陰性 | 感染症陰性 |\n| NotCheckedInfe..."
+          },
+          {
+            "index": 2,
+            "filename": "CCB.公開マスタ設定設計書_ウィジェット(アレルギー).md",
+            "chunk_index": 2,
+            "total_chunks": 8,
+            "similarity": 0.4475356340408325,
+            "reranking_score": 0.6756809202829996,
+            "excerpt": "![Image 1](28902183png.jpg)\n\n**📝 画像内のテキスト:**\n- アレルギー\n\n| PatientStatus | HeaderText | Visibility |\n| --- | --- | --- |\n| DrugAllergy | 薬剤 | Visible |\n| FoodAllergy | 食物 | Visible |\n| TabooContrastMediu..."
+          },
+          {
+            "index": 3,
+            "filename": "CAA.公開マスタ設定設計書_患者バー_20250826_183953.md",
+            "chunk_index": 75,
+            "total_chunks": 181,
+            "similarity": 0.450947642326355,
+            "reranking_score": 0.4562123902638754,
+            "excerpt": "| NoAllergy | 2 |  | “アレルギー薬剤なし　確認日:\"+PatientBar:NoDrugAllergyConfrimation:ConfirmationDate | M |  | アレルギーなしを確認 |\n| NoAllergy | 3 |  | “アレルギー食物なし　確認日:\"+PatientBar:NoFoodAllergyConfrimation:Confirmatio..."
+          }
+        ],
+        "search_type": "database",
+        "search_results": 10,
+        "used_reranking": true
+      }
+    }
+  ]
+}

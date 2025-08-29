@@ -71,6 +71,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
   onDeleteThread
 }) => {
   const [threads, setThreads] = useState<ThreadItem[]>(sampleThreads);
+  const [isSaving, setIsSaving] = useState(false);
   
   // APIからスレッド一覧を取得
   useEffect(() => {
@@ -105,6 +106,52 @@ export const Sidebar: React.FC<SidebarProps> = ({
     }
   };
 
+  const saveConversationToNote = async () => {
+    if (!currentThreadId) {
+      alert('保存する会話を選択してください。');
+      return;
+    }
+
+    setIsSaving(true);
+    try {
+      // 1. Get conversation summary from API
+      const summaryResponse = await fetch(`http://localhost:8000/api/aichat/threads/${currentThreadId}/summarize`, {
+        method: 'POST'
+      });
+      
+      if (!summaryResponse.ok) {
+        throw new Error('Failed to summarize conversation');
+      }
+      
+      const summaryData = await summaryResponse.json();
+      
+      // 2. Create note object
+      const note = {
+        id: Date.now().toString(),
+        title: `[会話要約] ${summaryData.title}`,
+        content: summaryData.summary,
+        tags: ['AI会話', '要約', new Date().toLocaleDateString('ja-JP')],
+        createdAt: new Date().toISOString(),
+        updatedAt: new Date().toISOString(),
+      };
+      
+      // 3. Save to localStorage (same as Note page)
+      const existingNotes = localStorage.getItem('notes');
+      const notes = existingNotes ? JSON.parse(existingNotes) : [];
+      notes.unshift(note);
+      localStorage.setItem('notes', JSON.stringify(notes));
+      
+      // 4. Show success message
+      alert('会話をノートに保存しました！');
+      
+    } catch (error) {
+      console.error('Failed to save conversation to note:', error);
+      alert('会話の保存に失敗しました。もう一度お試しください。');
+    } finally {
+      setIsSaving(false);
+    }
+  };
+
   return (
     <aside className="w-80 bg-white border-r border-gray-100 overflow-y-auto">
       <div className="p-6">
@@ -121,7 +168,12 @@ export const Sidebar: React.FC<SidebarProps> = ({
               <Plus className="w-4 h-4 text-gray-600" />
             </button>
           </div>
-          <div className="space-y-2">
+          <div 
+            className="space-y-2 overflow-y-auto pr-1 thread-list-scroll"
+            style={{ 
+              maxHeight: '240px' // Approximately 5 items * 48px per item
+            }}
+          >
             {threads.map((thread) => (
               <div
                 key={thread.id}
@@ -248,11 +300,18 @@ export const Sidebar: React.FC<SidebarProps> = ({
 
         <div className="mt-6 space-y-3">
           <button 
-            onClick={() => console.log('Save to note')}
-            className="w-full flex items-center justify-center gap-2 px-4 py-3 bg-blue-50 hover:bg-blue-100 text-blue-700 rounded-lg transition-colors"
+            onClick={saveConversationToNote}
+            disabled={isSaving || !currentThreadId}
+            className={`w-full flex items-center justify-center gap-2 px-4 py-3 rounded-lg transition-colors ${
+              isSaving || !currentThreadId 
+                ? 'bg-gray-100 text-gray-400 cursor-not-allowed' 
+                : 'bg-blue-50 hover:bg-blue-100 text-blue-700'
+            }`}
           >
             <Save className="w-4 h-4" />
-            <span className="text-sm font-medium">ここまでの会話をノートに保存</span>
+            <span className="text-sm font-medium">
+              {isSaving ? '保存中...' : 'ここまでの会話をノートに保存'}
+            </span>
           </button>
           
           <button 

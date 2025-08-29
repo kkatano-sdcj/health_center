@@ -19,10 +19,20 @@ from langchain_community.callbacks.manager import get_openai_callback
 # Local imports
 from app.services.langchain_vectorization_service import LangChainVectorizationService
 from app.services.web_search_service import WebSearchService
-from app.services.conversation_memory_service import ConversationMemoryService
 from app.prompts.prompt_loader import get_prompt_loader
 
 logger = logging.getLogger(__name__)
+
+# Try to use Redis memory service, fallback to file-based if connection fails
+try:
+    from app.services.redis_memory_service import RedisMemoryService as MemoryService
+    # Test Redis connection
+    test_service = MemoryService()
+    logger.info("Using Redis-backed conversation memory service")
+except Exception as e:
+    logger.warning(f"Redis connection failed: {e}")
+    logger.info("Falling back to file-based conversation memory service")
+    from app.services.conversation_memory_service import ConversationMemoryService as MemoryService
 
 class LightweightReranker:
     """Lightweight reranking system for search results"""
@@ -152,7 +162,7 @@ class RAGChatService:
         self.vector_service = LangChainVectorizationService()
         self.reranker = LightweightReranker()
         self.web_search_service = WebSearchService()
-        self.memory_service = ConversationMemoryService()
+        self.memory_service = MemoryService()
         
         # Initialize prompt loader
         self.prompt_loader = get_prompt_loader()
@@ -390,9 +400,13 @@ class RAGChatService:
                     if not self.memory_service.get_thread_info(conversation_id):
                         self.memory_service.create_thread(conversation_id, title=query[:50])
                     
-                    # Add messages to memory
+                    # Add messages to memory with metadata
                     self.memory_service.add_message(conversation_id, "human", query)
-                    self.memory_service.add_message(conversation_id, "ai", response)
+                    self.memory_service.add_message(conversation_id, "ai", response, metadata={
+                        "sources": sources,
+                        "search_type": "web",
+                        "search_results": len(web_results)
+                    })
                 
                 # Return web search response
                 return {
@@ -442,9 +456,14 @@ class RAGChatService:
                     if not self.memory_service.get_thread_info(conversation_id):
                         self.memory_service.create_thread(conversation_id, title=query[:50])
                     
-                    # Add messages to memory
+                    # Add messages to memory with metadata
                     self.memory_service.add_message(conversation_id, "human", query)
-                    self.memory_service.add_message(conversation_id, "ai", response)
+                    self.memory_service.add_message(conversation_id, "ai", response, metadata={
+                        "sources": sources,
+                        "search_type": "database",
+                        "search_results": len(ranked_results),
+                        "used_reranking": use_reranking
+                    })
                 
                 # 6. Return structured response
                 return {

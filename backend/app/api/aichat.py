@@ -335,18 +335,99 @@ async def get_thread(thread_id: str):
         if not thread_info:
             raise HTTPException(status_code=404, detail="Thread not found")
         
-        # Get conversation context
+        # Get full messages with metadata
+        messages = []
+        if hasattr(rag_chat_service.memory_service, 'get_messages'):
+            messages = rag_chat_service.memory_service.get_messages(thread_id)
+        
+        # Also get context for backward compatibility
         context = rag_chat_service.memory_service.get_context(thread_id)
         
         return {
             "thread": thread_info,
-            "context": context
+            "context": context,
+            "messages": messages
         }
         
     except HTTPException:
         raise
     except Exception as e:
         logger.error(f"Get thread error: {e}")
+        raise HTTPException(status_code=500, detail=str(e))
+
+@router.post("/threads/{thread_id}/summarize")
+async def summarize_thread(thread_id: str):
+    """
+    Summarize a conversation thread using LLM
+    
+    Args:
+        thread_id: Thread identifier
+        
+    Returns:
+        Summarized conversation
+    """
+    try:
+        rag_chat_service = get_rag_chat_service()
+        
+        # Get thread info and messages
+        thread_info = rag_chat_service.memory_service.get_thread_info(thread_id)
+        if not thread_info:
+            raise HTTPException(status_code=404, detail="Thread not found")
+        
+        # Get full conversation context
+        context = rag_chat_service.memory_service.get_context(thread_id, max_messages=50)
+        
+        if not context:
+            return {
+                "summary": "会話内容がありません。",
+                "title": thread_info.get("title", "無題の会話"),
+                "thread_id": thread_id
+            }
+        
+        # Generate summary using LLM
+        if rag_chat_service.llm:
+            from langchain.schema import SystemMessage, HumanMessage
+            
+            summary_prompt = f"""以下の会話を要約してください。重要なポイント、質問と回答、結論を含めて、構造化された要約を作成してください。
+
+会話内容:
+{context}
+
+要約形式:
+1. 会話の概要
+2. 主な質問と回答
+3. 重要なポイント
+4. 結論または次のアクション（もしあれば）"""
+            
+            messages = [
+                SystemMessage(content="あなたは会話を要約する専門家です。明確で簡潔な要約を作成してください。"),
+                HumanMessage(content=summary_prompt)
+            ]
+            
+            try:
+                response = rag_chat_service.llm.invoke(messages)
+                summary = response.content
+            except Exception as e:
+                logger.error(f"LLM summarization error: {e}")
+                # Fallback to simple summary
+                summary = f"会話タイトル: {thread_info.get('title', '無題')}\n\n{context[:500]}..."
+        else:
+            # Simple fallback if no LLM available
+            summary = f"会話タイトル: {thread_info.get('title', '無題')}\n\n{context[:500]}..."
+        
+        return {
+            "summary": summary,
+            "title": thread_info.get("title", "無題の会話"),
+            "thread_id": thread_id,
+            "message_count": thread_info.get("message_count", 0),
+            "created_at": thread_info.get("created_at"),
+            "updated_at": thread_info.get("updated_at")
+        }
+        
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error(f"Summarize thread error: {e}")
         raise HTTPException(status_code=500, detail=str(e))
 
 @router.delete("/threads/{thread_id}")

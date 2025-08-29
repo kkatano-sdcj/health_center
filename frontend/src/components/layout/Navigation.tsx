@@ -1,7 +1,7 @@
 "use client";
 
 import React from "react";
-import { Search, Settings, Bell, Home, MessageSquare, FileText, FolderOpen, Upload, Sparkles } from "lucide-react";
+import { Search, Settings, Bell, Home, MessageSquare, FileText, FolderOpen, Upload, Sparkles, BookOpen, HelpCircle, MessageCircle } from "lucide-react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 
@@ -20,10 +20,13 @@ export const Navigation: React.FC<NavigationProps> = ({
   
   const navItems = [
     { href: "/aichat", label: "AI Chat", icon: MessageSquare },
+    { href: "/qachat", label: "QA Chat", icon: MessageCircle },
     { href: "/convert", label: "Convert", icon: FileText },
     { href: "/storage", label: "Storage", icon: FolderOpen },
     { href: "/uploaded", label: "Uploaded", icon: Upload },
     { href: "/rag", label: "RAG Query", icon: Sparkles },
+    { href: "/note", label: "Note", icon: BookOpen },
+    { href: "/faq", label: "FAQ", icon: HelpCircle },
   ];
   
   return (

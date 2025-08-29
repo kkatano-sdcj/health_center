@@ -53,8 +53,73 @@ export const ChatContainer: React.FC<ChatContainerProps> = ({
       const response = await fetch(`http://localhost:8000/api/aichat/threads/${threadId}`);
       if (response.ok) {
         const data = await response.json();
-        // Convert thread context to messages for display
-        if (data.context) {
+        
+        // Check if we have full message data with metadata
+        if (data.messages && data.messages.length > 0) {
+          const loadedMessages: Message[] = [];
+          
+          data.messages.forEach((msg: any, index: number) => {
+            const timestamp = msg.timestamp ? new Date(msg.timestamp).toLocaleTimeString("ja-JP", {
+              hour: "2-digit",
+              minute: "2-digit"
+            }) : '';
+            
+            if (msg.role === 'human') {
+              loadedMessages.push({
+                id: `loaded-${index}`,
+                type: 'user',
+                content: msg.content,
+                timestamp: timestamp,
+              });
+            } else if (msg.role === 'ai') {
+              // Build message with metadata if available
+              const aiMessage: Message = {
+                id: `loaded-${index}`,
+                type: 'assistant',
+                content: msg.content,
+                timestamp: timestamp,
+              };
+              
+              // Add sources and metadata if available
+              if (msg.metadata) {
+                const meta = msg.metadata;
+                
+                // Convert sources to documents format
+                if (meta.sources && meta.sources.length > 0) {
+                  aiMessage.documents = meta.search_type === 'web'
+                    ? meta.sources.map((source: any, idx: number) => ({
+                        id: String(idx + 1),
+                        title: source.title || 'Web Result',
+                        type: 'web',
+                        updatedAt: source.url || '',
+                      }))
+                    : meta.sources.map((source: any, idx: number) => ({
+                        id: String(idx + 1),
+                        title: source.filename,
+                        type: source.filename?.endsWith('.pdf') ? 'pdf' : 'md',
+                        updatedAt: `チャンク ${source.chunk_index + 1}/${source.total_chunks}`,
+                      }));
+                }
+                
+                // Add metadata
+                if (meta.search_results !== undefined || meta.used_reranking !== undefined) {
+                  aiMessage.metadata = {
+                    relatedDocsCount: meta.search_results || 0,
+                    confidence: meta.sources?.length > 0 
+                      ? Math.round(meta.sources.reduce((acc: number, s: any) => acc + (s.similarity || 0.8), 0) / meta.sources.length * 100)
+                      : 0,
+                    usedReranking: meta.used_reranking
+                  };
+                }
+              }
+              
+              loadedMessages.push(aiMessage);
+            }
+          });
+          
+          setMessages(loadedMessages);
+        } else if (data.context) {
+          // Fallback to context parsing for older threads
           const contextLines = data.context.split('\n\n');
           const loadedMessages: Message[] = [];
           
