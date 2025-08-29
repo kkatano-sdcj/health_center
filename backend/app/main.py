@@ -5,6 +5,10 @@ import os
 import logging
 from starlette.middleware.base import BaseHTTPMiddleware
 from starlette.requests import Request
+from dotenv import load_dotenv
+
+# Load environment variables from .env file
+load_dotenv()
 
 from app.api import chat, documents, search, conversion, settings as api_settings
 from app.api.websocket import websocket_endpoint
@@ -90,7 +94,7 @@ app.include_router(rag.router, tags=["rag"])
 
 # AI Chat APIルーターの登録
 from app.api import aichat
-app.include_router(aichat.router, prefix="/api/v1/aichat", tags=["aichat"])
+app.include_router(aichat.router, prefix="/api/aichat", tags=["aichat"])
 
 # WebSocketエンドポイント
 @app.websocket("/ws")

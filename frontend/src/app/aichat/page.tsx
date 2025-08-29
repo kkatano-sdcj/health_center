@@ -1,18 +1,75 @@
 "use client";
 
-import React from "react";
+import React, { useState } from "react";
 import { Navigation } from "@/components/layout/Navigation";
 import { Sidebar } from "@/components/sidebar/Sidebar";
 import { InfoPanel } from "@/components/sidebar/InfoPanel";
 import { ChatContainer } from "@/components/chat/ChatContainer";
 
 export default function AIChatPage() {
+  const [useDatabase, setUseDatabase] = useState(true);
+  const [useWebSearch, setUseWebSearch] = useState(false);
+  const [currentThreadId, setCurrentThreadId] = useState<string | undefined>();
+
+  const handleDatabaseToggle = (value: boolean) => {
+    setUseDatabase(value);
+    if (value) {
+      setUseWebSearch(false);
+    }
+  };
+
+  const handleWebSearchToggle = (value: boolean) => {
+    setUseWebSearch(value);
+    if (value) {
+      setUseDatabase(false);
+    }
+  };
+
+  const handleThreadSelect = (threadId: string) => {
+    setCurrentThreadId(threadId);
+  };
+
+  const handleNewThread = async () => {
+    try {
+      const response = await fetch('http://localhost:8000/api/aichat/threads', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+      });
+      if (response.ok) {
+        const data = await response.json();
+        setCurrentThreadId(data.id);
+      }
+    } catch (error) {
+      console.error('Failed to create thread:', error);
+    }
+  };
+
+  const handleDeleteThread = (threadId: string) => {
+    if (currentThreadId === threadId) {
+      setCurrentThreadId(undefined);
+    }
+  };
+
   return (
     <div className="h-screen flex flex-col">
       <Navigation />
       <div className="flex h-[calc(100vh-64px)]">
-        <Sidebar />
-        <ChatContainer />
+        <Sidebar 
+          useDatabase={useDatabase}
+          useWebSearch={useWebSearch}
+          onUseDatabaseChange={handleDatabaseToggle}
+          onUseWebSearchChange={handleWebSearchToggle}
+          currentThreadId={currentThreadId}
+          onThreadSelect={handleThreadSelect}
+          onNewThread={handleNewThread}
+          onDeleteThread={handleDeleteThread}
+        />
+        <ChatContainer 
+          useDatabase={useDatabase}
+          useWebSearch={useWebSearch}
+          threadId={currentThreadId}
+          onThreadIdChange={setCurrentThreadId}
+        />
         <InfoPanel 
           selectedFile={{
             name: "製品仕様書_v2.3.pdf",

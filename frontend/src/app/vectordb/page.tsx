@@ -2,7 +2,7 @@
 
 import React, { useState, useEffect } from 'react';
 import { UnifiedHeader } from '@/components/layout/UnifiedHeader';
-import { Search, Database, FileText, BarChart, Loader, RefreshCw, Trash2, X, CheckSquare, Square } from 'lucide-react';
+import { Search, Database, FileText, BarChart, Loader, RefreshCw, Trash2, X, CheckSquare, Square, Eye } from 'lucide-react';
 
 interface VectorStats {
   collection_name: string;
@@ -36,6 +36,7 @@ export default function VectorDBPage() {
   const [selectedDocs, setSelectedDocs] = useState<Set<string>>(new Set());
   const [deleteConfirm, setDeleteConfirm] = useState<string | null>(null);
   const [deleting, setDeleting] = useState(false);
+  const [previewChunk, setPreviewChunk] = useState<SearchResult | null>(null);
 
   useEffect(() => {
     loadStats();
@@ -57,10 +58,9 @@ export default function VectorDBPage() {
   };
 
   const handleSearch = async () => {
-    if (!searchQuery.trim()) {
-      alert('検索クエリを入力してください');
-      return;
-    }
+    // 空欄の場合は全件検索として扱う
+    const isAllSearch = !searchQuery.trim();
+    const queryText = isAllSearch ? '' : searchQuery;
 
     setLoading(true);
     setSearchResults([]);
@@ -72,8 +72,8 @@ export default function VectorDBPage() {
           'Content-Type': 'application/json',
         },
         body: JSON.stringify({
-          query: searchQuery,
-          n_results: numResults,
+          query: queryText,
+          n_results: isAllSearch ? 100 : numResults, // 全件検索の場合は多めに取得
         }),
       });
 
@@ -382,7 +382,7 @@ export default function VectorDBPage() {
                   value={searchQuery}
                   onChange={(e) => setSearchQuery(e.target.value)}
                   onKeyPress={(e) => e.key === 'Enter' && handleSearch()}
-                  placeholder="ベクトルDBを検索..."
+                  placeholder="ベクトルDBを検索... (空欄で全件表示)"
                   className="w-full pl-10 pr-4 py-2 border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary/50 focus:border-primary transition-colors"
                 />
               </div>
@@ -397,7 +397,7 @@ export default function VectorDBPage() {
               </select>
               <button
                 onClick={handleSearch}
-                disabled={loading || !searchQuery.trim()}
+                disabled={loading}
                 className="px-6 py-2 bg-gradient-to-r from-primary to-secondary text-white rounded-lg hover:shadow-lg transition-all duration-200 disabled:opacity-50 disabled:cursor-not-allowed flex items-center gap-2"
               >
                 {loading ? (
@@ -405,7 +405,7 @@ export default function VectorDBPage() {
                 ) : (
                   <Search className="w-5 h-5" />
                 )}
-                検索
+                {searchQuery.trim() ? '検索' : '全件表示'}
               </button>
             </div>
           </div>
@@ -416,7 +416,7 @@ export default function VectorDBPage() {
           <div className="bg-white rounded-xl shadow-sm border border-gray-100">
             <div className="px-6 py-4 border-b border-gray-200">
               <h3 className="text-lg font-semibold text-gray-900">
-                検索結果 ({searchResults.length}件)
+                {searchQuery.trim() ? `検索結果 (${searchResults.length}件)` : `全チャンク一覧 (${searchResults.length}件)`}
               </h3>
             </div>
             <div className="divide-y divide-gray-200">
@@ -433,6 +433,14 @@ export default function VectorDBPage() {
                       </span>
                     </div>
                     <div className="flex items-center gap-2">
+                      <button
+                        onClick={() => setPreviewChunk(result)}
+                        className="px-3 py-1 bg-blue-100 text-blue-700 hover:bg-blue-200 rounded-md text-sm flex items-center gap-1 transition-colors"
+                        title="内容をプレビュー"
+                      >
+                        <Eye className="w-4 h-4" />
+                        プレビュー
+                      </button>
                       <span className={`font-semibold ${getSimilarityColor(result.similarity)}`}>
                         {(result.similarity * 100).toFixed(1)}%
                       </span>
@@ -448,8 +456,12 @@ export default function VectorDBPage() {
                       </span>
                     </div>
                   </div>
-                  <div className="bg-gray-50 rounded-lg p-4">
-                    <p className="text-gray-700 whitespace-pre-wrap break-words">
+                  <div 
+                    className="bg-gray-50 rounded-lg p-4 cursor-pointer hover:bg-gray-100 transition-colors"
+                    onClick={() => setPreviewChunk(result)}
+                    title="クリックして詳細を表示"
+                  >
+                    <p className="text-gray-700 whitespace-pre-wrap break-words line-clamp-4">
                       {result.text}
                     </p>
                   </div>
@@ -475,13 +487,98 @@ export default function VectorDBPage() {
         )}
 
         {/* Initial State */}
-        {!loading && !searchQuery && searchResults.length === 0 && (
+        {!loading && searchResults.length === 0 && (
           <div className="bg-white rounded-xl shadow-sm border border-gray-100 p-12 text-center">
             <Database className="w-12 h-12 text-gray-400 mx-auto mb-4" />
             <p className="text-gray-600">ベクトルDBを検索してください</p>
             <p className="text-sm text-gray-500 mt-2">
-              キーワードを入力して関連するドキュメントを検索できます
+              キーワードを入力して検索、または空欄のまま検索で全件表示
             </p>
+          </div>
+        )}
+
+        {/* Preview Modal */}
+        {previewChunk && (
+          <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black bg-opacity-50">
+            <div className="bg-white rounded-xl shadow-2xl max-w-4xl w-full max-h-[80vh] flex flex-col">
+              {/* Modal Header */}
+              <div className="px-6 py-4 border-b border-gray-200 flex items-center justify-between">
+                <div className="flex items-center gap-3">
+                  <FileText className="w-5 h-5 text-gray-600" />
+                  <div>
+                    <h3 className="text-lg font-semibold text-gray-900">
+                      {previewChunk.metadata.source_filename}
+                    </h3>
+                    <p className="text-sm text-gray-500">
+                      チャンク {previewChunk.metadata.chunk_index + 1} / {previewChunk.metadata.total_chunks}
+                    </p>
+                  </div>
+                </div>
+                <button
+                  onClick={() => setPreviewChunk(null)}
+                  className="p-2 hover:bg-gray-100 rounded-lg transition-colors"
+                  title="閉じる"
+                >
+                  <X className="w-5 h-5 text-gray-500" />
+                </button>
+              </div>
+
+              {/* Modal Body */}
+              <div className="flex-1 overflow-y-auto p-6">
+                <div className="mb-4 flex items-center gap-4">
+                  <div className="flex items-center gap-2">
+                    <span className="text-sm font-medium text-gray-600">関連度:</span>
+                    <span className={`font-semibold ${getSimilarityColor(previewChunk.similarity)}`}>
+                      {(previewChunk.similarity * 100).toFixed(1)}%
+                    </span>
+                    <span className={`px-2 py-1 rounded-full text-xs font-medium ${
+                      getSimilarityColor(previewChunk.similarity)
+                    } bg-opacity-10 ${getSimilarityColor(previewChunk.similarity).replace('text', 'bg')}`}>
+                      {getSimilarityLabel(previewChunk.similarity)}
+                    </span>
+                  </div>
+                  <div className="flex items-center gap-2 text-sm text-gray-500">
+                    <span>Distance: {previewChunk.distance.toFixed(4)}</span>
+                  </div>
+                </div>
+
+                {/* Content */}
+                <div className="bg-gray-50 rounded-lg p-6">
+                  <pre className="text-gray-700 whitespace-pre-wrap break-words font-sans text-sm leading-relaxed">
+                    {previewChunk.text}
+                  </pre>
+                </div>
+
+                {/* Metadata */}
+                <div className="mt-4 p-4 bg-gray-100 rounded-lg">
+                  <h4 className="text-sm font-medium text-gray-700 mb-2">メタデータ</h4>
+                  <div className="grid grid-cols-2 gap-2 text-xs text-gray-600">
+                    <div>
+                      <span className="font-medium">Document ID:</span> {previewChunk.metadata.doc_id}
+                    </div>
+                    <div>
+                      <span className="font-medium">ファイル名:</span> {previewChunk.metadata.source_filename}
+                    </div>
+                    <div>
+                      <span className="font-medium">チャンク位置:</span> {previewChunk.metadata.chunk_index + 1} / {previewChunk.metadata.total_chunks}
+                    </div>
+                    <div>
+                      <span className="font-medium">類似度スコア:</span> {previewChunk.similarity.toFixed(4)}
+                    </div>
+                  </div>
+                </div>
+              </div>
+
+              {/* Modal Footer */}
+              <div className="px-6 py-4 border-t border-gray-200 flex justify-end">
+                <button
+                  onClick={() => setPreviewChunk(null)}
+                  className="px-4 py-2 bg-gray-100 text-gray-700 rounded-lg hover:bg-gray-200 transition-colors"
+                >
+                  閉じる
+                </button>
+              </div>
+            </div>
           </div>
         )}
       </main>

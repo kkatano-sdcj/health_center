@@ -6,14 +6,20 @@ import logging
 from typing import List, Dict, Any, Optional, Tuple
 from datetime import datetime
 from collections import defaultdict
+from dotenv import load_dotenv
+
+# Load environment variables
+load_dotenv()
 
 # LangChain imports
 from langchain.schema import HumanMessage, SystemMessage
 from langchain_community.chat_models import ChatOpenAI
-from langchain.callbacks import get_openai_callback
+from langchain_community.callbacks.manager import get_openai_callback
 
 # Local imports
 from app.services.langchain_vectorization_service import LangChainVectorizationService
+from app.services.web_search_service import WebSearchService
+from app.services.conversation_memory_service import ConversationMemoryService
 from app.prompts.prompt_loader import get_prompt_loader
 
 logger = logging.getLogger(__name__)
@@ -145,6 +151,8 @@ class RAGChatService:
         """Initialize RAG chat service"""
         self.vector_service = LangChainVectorizationService()
         self.reranker = LightweightReranker()
+        self.web_search_service = WebSearchService()
+        self.memory_service = ConversationMemoryService()
         
         # Initialize prompt loader
         self.prompt_loader = get_prompt_loader()
@@ -154,25 +162,26 @@ class RAGChatService:
         if api_key:
             self.llm = ChatOpenAI(
                 model="gpt-4o-mini",
-                temperature=0.2,
-                max_tokens=1000,
-                openai_api_key=api_key
+                temperature=0.3,
+                max_tokens=500,
+                openai_api_key=api_key,
+                request_timeout=15.0,  # Reasonable timeout
+                max_retries=2
             )
             logger.info("RAG chat service initialized with OpenAI gpt-4o-mini")
         else:
             self.llm = None
             logger.warning("OpenAI API key not found - RAG chat will work without LLM generation")
         
-        # Conversation memory (in-memory for now)
+        # Conversation memory (deprecated - use memory_service instead)
         self.conversations = {}
     
     def get_system_prompt(self) -> str:
         """Get the system prompt for the chat"""
-        # Reload prompts to pick up any changes
-        self.prompt_loader.reload_prompts()
+        # Don't reload prompts on every call - it's too expensive
         return self.prompt_loader.get_system_prompt()
     
-    def build_context(self, results: List[Dict[str, Any]], max_length: int = 3000, max_sources: int = 3) -> Tuple[str, List[Dict[str, Any]]]:
+    def build_context(self, results: List[Dict[str, Any]], max_length: int = 2000, max_sources: int = 3) -> Tuple[str, List[Dict[str, Any]]]:
         """
         Build context from search results
         
@@ -222,14 +231,15 @@ class RAGChatService:
         
         return '\n\n'.join(context_parts), sources
     
-    def generate_response(self, query: str, context: str, conversation_id: Optional[str] = None) -> str:
+    def generate_response(self, query: str, context: str, conversation_id: Optional[str] = None, search_type: str = "database") -> str:
         """
-        Generate response using LLM
+        Generate response using LLM with conversation memory
         
         Args:
             query: User query
             context: Retrieved context
             conversation_id: Optional conversation ID for memory
+            search_type: Type of search ("database" or "web")
             
         Returns:
             Generated response
@@ -237,8 +247,26 @@ class RAGChatService:
         if not self.llm:
             return self._generate_fallback_response(query, context)
         
-        # Get formatted user prompt from template
-        user_prompt = self.prompt_loader.format_user_prompt(query=query, context=context)
+        # Get conversation history if thread exists
+        conversation_context = ""
+        if conversation_id and self.memory_service.get_thread_info(conversation_id):
+            conversation_context = self.memory_service.get_context(conversation_id, max_messages=6)
+        
+        # Get formatted user prompt from template based on search type
+        if search_type == "web":
+            # Use web search specific template
+            user_prompt = self.prompt_loader.format_user_prompt(query=query, context=context, template_type="web")
+        else:
+            # Use default database template
+            user_prompt = self.prompt_loader.format_user_prompt(query=query, context=context, template_type="default")
+        
+        # Add conversation context to the prompt if available
+        if conversation_context:
+            user_prompt = f"""## 過去の会話履歴
+{conversation_context}
+
+## 新しい質問
+{user_prompt}"""
         
         # Build messages
         messages = [
@@ -249,7 +277,7 @@ class RAGChatService:
         try:
             # Generate response with token tracking
             with get_openai_callback() as cb:
-                response = self.llm(messages)
+                response = self.llm.invoke(messages)
                 
                 # Log token usage
                 logger.info(f"Token usage - Total: {cb.total_tokens}, Prompt: {cb.prompt_tokens}, Completion: {cb.completion_tokens}")
@@ -279,7 +307,9 @@ class RAGChatService:
         query: str, 
         conversation_id: Optional[str] = None,
         n_results: int = 10,
-        use_reranking: bool = True
+        use_reranking: bool = True,
+        use_database: bool = True,
+        use_web_search: bool = False
     ) -> Dict[str, Any]:
         """
         Main chat endpoint with RAG
@@ -289,6 +319,8 @@ class RAGChatService:
             conversation_id: Optional conversation ID
             n_results: Number of search results to retrieve
             use_reranking: Whether to use reranking
+            use_database: Whether to use vector database search
+            use_web_search: Whether to use web search
             
         Returns:
             Chat response with sources and metadata
@@ -296,55 +328,146 @@ class RAGChatService:
         start_time = datetime.now()
         
         try:
-            # 1. Vector search (retrieve more results for reranking)
-            search_n = n_results * 2 if use_reranking else n_results
-            search_results = self.vector_service.search(query, n_results=search_n)
-            
-            if not search_results.get('results'):
+            # Determine search mode
+            if use_web_search:
+                # Web search mode
+                logger.info(f"Starting web search for query: {query}")
+                
+                try:
+                    # 詳細検索を使用
+                    web_results = self.web_search_service.search_web_detailed(query, max_results=n_results)
+                    logger.info(f"Web search returned {len(web_results) if web_results else 0} results")
+                    
+                    if not web_results:
+                        logger.warning(f"No web search results found for query: {query}")
+                        return {
+                            'query': query,
+                            'response': 'Web検索で情報が見つかりませんでした。別のキーワードでお試しください。',
+                            'sources': [],
+                            'search_results': 0,
+                            'search_type': 'web',
+                            'processing_time': (datetime.now() - start_time).total_seconds()
+                        }
+                    
+                    # Build context from web results
+                    context, sources = self.web_search_service.build_web_context(web_results, max_sources=3)
+                    logger.info(f"Built context with {len(sources)} sources, context length: {len(context)}")
+                    
+                    if not context:
+                        logger.warning("Empty context from web search results")
+                        return {
+                            'query': query,
+                            'response': 'Web検索結果からコンテキストを構築できませんでした。',
+                            'sources': [],
+                            'search_results': len(web_results),
+                            'search_type': 'web',
+                            'processing_time': (datetime.now() - start_time).total_seconds()
+                        }
+                    
+                    # Generate response
+                    response = self.generate_response(query, context, conversation_id, search_type="web")
+                    logger.info(f"Generated response length: {len(response) if response else 0}")
+                    
+                    if not response:
+                        logger.error("Empty response from generate_response")
+                        response = "申し訳ございません。応答の生成に失敗しました。"
+                    
+                except Exception as web_error:
+                    logger.error(f"Web search error: {web_error}", exc_info=True)
+                    return {
+                        'query': query,
+                        'response': f'Web検索中にエラーが発生しました: {str(web_error)}',
+                        'sources': [],
+                        'search_results': 0,
+                        'search_type': 'web',
+                        'error': str(web_error),
+                        'processing_time': (datetime.now() - start_time).total_seconds()
+                    }
+                
+                # Store in conversation memory using memory service
+                if conversation_id:
+                    # Create thread if it doesn't exist
+                    if not self.memory_service.get_thread_info(conversation_id):
+                        self.memory_service.create_thread(conversation_id, title=query[:50])
+                    
+                    # Add messages to memory
+                    self.memory_service.add_message(conversation_id, "human", query)
+                    self.memory_service.add_message(conversation_id, "ai", response)
+                
+                # Return web search response
                 return {
                     'query': query,
-                    'response': 'お探しの情報が見つかりませんでした。別のキーワードでお試しください。',
-                    'sources': [],
-                    'search_results': 0,
-                    'processing_time': (datetime.now() - start_time).total_seconds()
+                    'response': response,
+                    'sources': sources,
+                    'search_results': len(web_results),
+                    'search_type': 'web',
+                    'conversation_id': conversation_id,
+                    'processing_time': (datetime.now() - start_time).total_seconds(),
+                    'timestamp': datetime.now().isoformat()
                 }
-            
-            # 2. Rerank results
-            if use_reranking:
-                ranked_results = self.reranker.rerank(query, search_results['results'])
-                # Take top N after reranking
-                ranked_results = ranked_results[:n_results]
-            else:
-                ranked_results = search_results['results']
-            
-            # 3. Build context
-            context, sources = self.build_context(ranked_results)
-            
-            # 4. Generate response
-            response = self.generate_response(query, context, conversation_id)
-            
-            # 5. Store in conversation memory if ID provided
-            if conversation_id:
-                if conversation_id not in self.conversations:
-                    self.conversations[conversation_id] = []
                 
-                self.conversations[conversation_id].append({
+            elif use_database:
+                # Database search mode (existing implementation)
+                # 1. Vector search (retrieve more results for reranking)
+                search_n = n_results * 2 if use_reranking else n_results
+                search_results = self.vector_service.search(query, n_results=search_n)
+            
+                if not search_results.get('results'):
+                    return {
+                        'query': query,
+                        'response': 'お探しの情報が見つかりませんでした。別のキーワードでお試しください。',
+                        'sources': [],
+                        'search_results': 0,
+                        'search_type': 'database',
+                        'processing_time': (datetime.now() - start_time).total_seconds()
+                    }
+                
+                # 2. Rerank results
+                if use_reranking:
+                    ranked_results = self.reranker.rerank(query, search_results['results'])
+                    # Take top N after reranking
+                    ranked_results = ranked_results[:n_results]
+                else:
+                    ranked_results = search_results['results']
+                
+                # 3. Build context
+                context, sources = self.build_context(ranked_results)
+                
+                # 4. Generate response
+                response = self.generate_response(query, context, conversation_id)
+                
+                # 5. Store in conversation memory using memory service
+                if conversation_id:
+                    # Create thread if it doesn't exist
+                    if not self.memory_service.get_thread_info(conversation_id):
+                        self.memory_service.create_thread(conversation_id, title=query[:50])
+                    
+                    # Add messages to memory
+                    self.memory_service.add_message(conversation_id, "human", query)
+                    self.memory_service.add_message(conversation_id, "ai", response)
+                
+                # 6. Return structured response
+                return {
                     'query': query,
                     'response': response,
+                    'sources': sources,
+                    'search_results': len(ranked_results),
+                    'search_type': 'database',
+                    'used_reranking': use_reranking,
+                    'conversation_id': conversation_id,
+                    'processing_time': (datetime.now() - start_time).total_seconds(),
                     'timestamp': datetime.now().isoformat()
-                })
-            
-            # 6. Return structured response
-            return {
-                'query': query,
-                'response': response,
-                'sources': sources,
-                'search_results': len(ranked_results),
-                'used_reranking': use_reranking,
-                'conversation_id': conversation_id,
-                'processing_time': (datetime.now() - start_time).total_seconds(),
-                'timestamp': datetime.now().isoformat()
-            }
+                }
+            else:
+                # Neither database nor web search enabled
+                return {
+                    'query': query,
+                    'response': '検索ソースが選択されていません。データベースまたはWeb検索を有効にしてください。',
+                    'sources': [],
+                    'search_results': 0,
+                    'search_type': 'none',
+                    'processing_time': (datetime.now() - start_time).total_seconds()
+                }
             
         except Exception as e:
             logger.error(f"Chat processing error: {e}")

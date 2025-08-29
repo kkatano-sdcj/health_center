@@ -32,7 +32,8 @@ class PromptLoader:
         """Load all prompt templates into cache"""
         prompt_files = {
             'system': 'system_prompt.txt',
-            'user': 'user_prompt_template.txt'
+            'user': 'user_prompt_template.txt',
+            'web_user': 'web_user_prompt_template.txt'
         }
         
         for key, filename in prompt_files.items():
@@ -82,6 +83,28 @@ class PromptLoader:
 - 不明な点は「文書に記載がありません」と明記
 - 医療的判断は避け、文書の内容のみ提供
 
+回答:""",
+            'web_user': """以下のWeb検索結果に基づいて質問に答えてください。
+
+## 質問
+{query}
+
+## Web検索結果（番号付き）
+{context}
+
+## 回答要件
+- Web検索結果の情報のみを使用
+- 各要点に出典番号 [番号] を付与
+- 不明な点は「検索結果に記載がありません」と明記
+- 最新の情報に基づいて回答
+- 読みやすく自然な文体、出力を心がける（文節毎に改行し1行空ける）
+- テーブル形式で出力する場合は、Markdownテーブル形式を使用し、以下のフォーマットに従う：
+  - ヘッダー行と区切り行を含める（| 列1 | 列2 | 列3 |）
+  - 各セルは適切な幅で整列させる
+  - 必要に応じて列を右寄せ、左寄せ、中央寄せに設定
+  - 長い内容は適切に改行または省略
+
+
 回答:"""
         }
         
@@ -97,19 +120,62 @@ class PromptLoader:
         """Get the user prompt template"""
         return self._cache.get('user', '')
     
-    def format_user_prompt(self, query: str, context: str) -> str:
+    def format_user_prompt(self, query: str, context: str, template_type: str = "default") -> str:
         """
         Format the user prompt with query and context
         
         Args:
             query: User's question
             context: Retrieved document context
+            template_type: Type of template to use ("default" or "web")
             
         Returns:
             Formatted prompt
         """
-        template = self.get_user_prompt_template()
+        if template_type == "web":
+            # First try to get from cache, then load directly
+            template = self._cache.get('web_user')
+            if not template:
+                template = self.load_template("web_user_prompt_template.txt")
+            if not template:
+                # Fallback to default web template
+                template = self._cache.get('web_user', self._cache.get('user', ''))
+        else:
+            # Use default database template
+            template = self.get_user_prompt_template()
+            if not template:
+                # Fallback to default template
+                template = self._cache.get('user', '')
+                
+        if not template:
+            logger.error(f"No template found for type: {template_type}")
+            return f"Query: {query}\nContext: {context}"
+            
         return template.format(query=query, context=context)
+    
+    def load_template(self, filename: str) -> str:
+        """
+        Load a specific template file
+        
+        Args:
+            filename: Name of the template file
+            
+        Returns:
+            Template content as string
+        """
+        filepath = self.prompts_dir / filename
+        if filepath.exists():
+            try:
+                with open(filepath, 'r', encoding='utf-8') as f:
+                    content = f.read().strip()
+                    logger.info(f"Loaded template: {filename}")
+                    return content
+            except Exception as e:
+                logger.error(f"Error loading template {filename}: {e}")
+                return ""
+        else:
+            logger.warning(f"Template not found: {filename}")
+            return ""
     
     def reload_prompts(self):
         """Reload prompts from files (useful for hot-reloading)"""

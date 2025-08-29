@@ -1,11 +1,12 @@
 "use client";
 
 import React, { useState, useRef, KeyboardEvent } from "react";
-import { Paperclip, Send } from "lucide-react";
+import { Paperclip, Send, Square } from "lucide-react";
 
 interface ChatInputProps {
   onSendMessage: (message: string) => void;
   onAttachFile?: () => void;
+  onStopGeneration?: () => void;
   placeholder?: string;
   isLoading?: boolean;
 }
@@ -13,6 +14,7 @@ interface ChatInputProps {
 export const ChatInput: React.FC<ChatInputProps> = ({
   onSendMessage,
   onAttachFile,
+  onStopGeneration,
   placeholder = "質問を入力してください...",
   isLoading = false,
 }) => {
@@ -57,13 +59,23 @@ export const ChatInput: React.FC<ChatInputProps> = ({
                 disabled={isLoading}
                 autoFocus
               />
-              <button
-                onClick={handleSend}
-                disabled={!message.trim() || isLoading}
-                className="p-2 bg-gradient-to-r from-primary to-secondary text-white rounded-xl hover:opacity-90 transition-opacity hover-glow disabled:opacity-50 disabled:cursor-not-allowed"
-              >
-                <Send className="w-5 h-5" />
-              </button>
+              {isLoading ? (
+                <button
+                  onClick={onStopGeneration}
+                  className="p-2 bg-red-500 text-white rounded-xl hover:bg-red-600 transition-colors hover-glow"
+                  title="生成を停止"
+                >
+                  <Square className="w-5 h-5" />
+                </button>
+              ) : (
+                <button
+                  onClick={handleSend}
+                  disabled={!message.trim()}
+                  className="p-2 bg-gradient-to-r from-primary to-secondary text-white rounded-xl hover:opacity-90 transition-opacity hover-glow disabled:opacity-50 disabled:cursor-not-allowed"
+                >
+                  <Send className="w-5 h-5" />
+                </button>
+              )}
             </div>
           </div>
           <div className="flex items-center justify-between mt-2 px-2">

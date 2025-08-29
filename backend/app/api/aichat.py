@@ -1,9 +1,10 @@
 """
-AI Chat API Endpoints with RAG
+AI Chat API Endpoints with RAG and Thread Management
 """
 from fastapi import APIRouter, HTTPException, Body
 from typing import Dict, Any, Optional, List
 from pydantic import BaseModel
+from datetime import datetime
 import logging
 import uuid
 
@@ -12,8 +13,15 @@ from app.services.rag_chat_service import RAGChatService
 logger = logging.getLogger(__name__)
 router = APIRouter()
 
-# Initialize service
-rag_chat_service = RAGChatService()
+# Initialize service as singleton
+_rag_chat_service = None
+
+def get_rag_chat_service():
+    global _rag_chat_service
+    if _rag_chat_service is None:
+        logger.info("Initializing RAG chat service (singleton)")
+        _rag_chat_service = RAGChatService()
+    return _rag_chat_service
 
 class ChatRequest(BaseModel):
     """Chat request model"""
@@ -21,6 +29,8 @@ class ChatRequest(BaseModel):
     conversation_id: Optional[str] = None
     use_reranking: Optional[bool] = True
     n_results: Optional[int] = 10
+    use_database: Optional[bool] = True
+    use_web_search: Optional[bool] = False
 
 class ChatResponse(BaseModel):
     """Chat response model"""
@@ -51,6 +61,9 @@ async def chat(request: ChatRequest):
         AI-generated response with sources
     """
     try:
+        # Get service instance
+        rag_chat_service = get_rag_chat_service()
+        
         # Generate conversation ID if not provided
         conversation_id = request.conversation_id or str(uuid.uuid4())
         
@@ -59,7 +72,9 @@ async def chat(request: ChatRequest):
             query=request.message,
             conversation_id=conversation_id,
             n_results=request.n_results,
-            use_reranking=request.use_reranking
+            use_reranking=request.use_reranking,
+            use_database=request.use_database,
+            use_web_search=request.use_web_search
         )
         
         # Add conversation ID to result
@@ -100,6 +115,7 @@ async def get_conversation(conversation_id: str):
         Conversation history
     """
     try:
+        rag_chat_service = get_rag_chat_service()
         history = rag_chat_service.get_conversation_history(conversation_id)
         
         return {
@@ -124,6 +140,7 @@ async def clear_conversation(conversation_id: str):
         Success status
     """
     try:
+        rag_chat_service = get_rag_chat_service()
         success = rag_chat_service.clear_conversation(conversation_id)
         
         if success:
@@ -152,6 +169,7 @@ async def update_reranker_weights(request: RerankerWeightsRequest):
         if abs(weight_sum - 1.0) > 0.01:
             raise ValueError(f"Weights should sum to 1.0, got {weight_sum}")
         
+        rag_chat_service = get_rag_chat_service()
         rag_chat_service.update_reranker_weights(request.weights)
         
         return {
@@ -173,6 +191,8 @@ async def health_check():
         Service health status
     """
     try:
+        rag_chat_service = get_rag_chat_service()
+        
         # Check vector service
         vector_stats = rag_chat_service.vector_service.get_collection_stats()
         
@@ -212,15 +232,14 @@ async def get_stats():
         Service statistics
     """
     try:
-        # Get conversation count
-        conversation_count = len(rag_chat_service.conversations)
-        total_messages = sum(
-            len(history) 
-            for history in rag_chat_service.conversations.values()
-        )
+        rag_chat_service = get_rag_chat_service()
+        
+        # Get thread statistics from memory service
+        threads = rag_chat_service.memory_service.list_threads()
+        total_messages = sum(t["message_count"] for t in threads)
         
         return {
-            "active_conversations": conversation_count,
+            "active_threads": len(threads),
             "total_messages": total_messages,
             "vector_db_stats": rag_chat_service.vector_service.get_collection_stats(),
             "reranker_weights": rag_chat_service.reranker.weights
@@ -228,4 +247,148 @@ async def get_stats():
         
     except Exception as e:
         logger.error(f"Get stats error: {e}")
+        raise HTTPException(status_code=500, detail=str(e))
+
+# Thread Management Endpoints
+
+@router.get("/threads")
+async def list_threads():
+    """
+    List all conversation threads
+    
+    Returns:
+        List of threads with metadata
+    """
+    try:
+        rag_chat_service = get_rag_chat_service()
+        threads = rag_chat_service.memory_service.list_threads()
+        
+        # Format timestamps for frontend
+        for thread in threads:
+            # Convert ISO timestamp to relative time
+            try:
+                created = datetime.fromisoformat(thread["created_at"])
+                updated = datetime.fromisoformat(thread["updated_at"])
+                now = datetime.now()
+                
+                # Calculate time difference
+                diff = now - updated
+                if diff.days > 0:
+                    thread["timestamp"] = f"{diff.days}日前"
+                elif diff.seconds > 3600:
+                    thread["timestamp"] = f"{diff.seconds // 3600}時間前"
+                elif diff.seconds > 60:
+                    thread["timestamp"] = f"{diff.seconds // 60}分前"
+                else:
+                    thread["timestamp"] = "たった今"
+                    
+                # Rename for frontend compatibility
+                thread["messageCount"] = thread.pop("message_count")
+                
+            except Exception as e:
+                thread["timestamp"] = "不明"
+                thread["messageCount"] = 0
+        
+        return {"threads": threads}
+        
+    except Exception as e:
+        logger.error(f"List threads error: {e}")
+        raise HTTPException(status_code=500, detail=str(e))
+
+@router.post("/threads")
+async def create_thread(title: Optional[str] = None):
+    """
+    Create a new conversation thread
+    
+    Args:
+        title: Optional thread title
+        
+    Returns:
+        Created thread metadata
+    """
+    try:
+        rag_chat_service = get_rag_chat_service()
+        thread_id = str(uuid.uuid4())
+        thread = rag_chat_service.memory_service.create_thread(thread_id, title)
+        
+        return thread
+        
+    except Exception as e:
+        logger.error(f"Create thread error: {e}")
+        raise HTTPException(status_code=500, detail=str(e))
+
+@router.get("/threads/{thread_id}")
+async def get_thread(thread_id: str):
+    """
+    Get thread information and messages
+    
+    Args:
+        thread_id: Thread identifier
+        
+    Returns:
+        Thread metadata and messages
+    """
+    try:
+        rag_chat_service = get_rag_chat_service()
+        thread_info = rag_chat_service.memory_service.get_thread_info(thread_id)
+        
+        if not thread_info:
+            raise HTTPException(status_code=404, detail="Thread not found")
+        
+        # Get conversation context
+        context = rag_chat_service.memory_service.get_context(thread_id)
+        
+        return {
+            "thread": thread_info,
+            "context": context
+        }
+        
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error(f"Get thread error: {e}")
+        raise HTTPException(status_code=500, detail=str(e))
+
+@router.delete("/threads/{thread_id}")
+async def delete_thread(thread_id: str):
+    """
+    Delete a conversation thread
+    
+    Args:
+        thread_id: Thread identifier
+        
+    Returns:
+        Success status
+    """
+    try:
+        rag_chat_service = get_rag_chat_service()
+        success = rag_chat_service.memory_service.delete_thread(thread_id)
+        
+        if not success:
+            raise HTTPException(status_code=404, detail="Thread not found")
+        
+        return {"success": True, "message": f"Thread {thread_id} deleted"}
+        
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error(f"Delete thread error: {e}")
+        raise HTTPException(status_code=500, detail=str(e))
+
+@router.delete("/threads")
+async def clear_all_threads():
+    """
+    Clear all conversation threads
+    
+    Returns:
+        Number of threads deleted
+    """
+    try:
+        rag_chat_service = get_rag_chat_service()
+        count = rag_chat_service.memory_service.clear_all_threads()
+        
+        return {"success": True, "deleted_count": count}
+        
+    except Exception as e:
+        logger.error(f"Clear threads error: {e}")
         raise HTTPException(status_code=500, detail=str(e))
