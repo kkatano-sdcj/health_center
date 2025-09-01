@@ -197,7 +197,7 @@ export default function ApiTestPage() {
         </ol>
         <p><strong>Expected results:</strong></p>
         <ul>
-          <li>✅ Backend health check should return {"status": "healthy"}</li>
+          <li>✅ Backend health check should return {`{"status": "healthy"}`}</li>
           <li>✅ WebSocket should connect and respond to ping</li>
           <li>✅ File upload should return conversion result with markdown content</li>
         </ul>

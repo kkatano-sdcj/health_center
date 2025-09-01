@@ -11,8 +11,8 @@ from datetime import datetime
 from langchain.text_splitter import RecursiveCharacterTextSplitter
 from langchain_text_splitters import CharacterTextSplitter
 from langchain.docstore.document import Document
-from langchain_community.vectorstores import Chroma
-from langchain_community.embeddings import SentenceTransformerEmbeddings
+from langchain_chroma import Chroma
+from langchain_huggingface import HuggingFaceEmbeddings
 from langchain.schema import Document as LangChainDocument
 
 # Metadata service
@@ -86,9 +86,11 @@ class SemanticTextSplitter:
                 "timestamp": datetime.now().isoformat()
             }
             
-            # Merge with provided metadata
+            # Merge with provided metadata (ensure no None values)
             if metadata:
-                chunk_metadata.update(metadata)
+                # Filter out None values before merging
+                filtered_metadata = {k: v if v is not None else "" for k, v in metadata.items()}
+                chunk_metadata.update(filtered_metadata)
             
             documents.append(
                 Document(
@@ -116,7 +118,7 @@ class LangChainVectorizationService:
         self.metadata_service = MetadataService()
         
         # Initialize embedding model (using sentence-transformers)
-        self.embeddings = SentenceTransformerEmbeddings(
+        self.embeddings = HuggingFaceEmbeddings(
             model_name="all-MiniLM-L6-v2"  # Lightweight multilingual model
         )
         
@@ -136,7 +138,7 @@ class LangChainVectorizationService:
         try:
             # Create persist directory if it doesn't exist
             os.makedirs(self.persist_directory, exist_ok=True)
-            chroma_path = os.path.join(self.persist_directory, "chroma_langchain_db")
+            chroma_path = os.path.join(self.persist_directory, "chroma_langchain_v2")
             
             # Initialize Chroma with persistence
             vector_store = Chroma(
@@ -183,15 +185,18 @@ class LangChainVectorizationService:
             file_metadata = self.metadata_service.get_file_metadata(filename, "converted")
             relationship = self.metadata_service.get_file_relationship(filename)
             
-            # Prepare metadata for chunks
+            # Prepare metadata for chunks (ensure no None values)
             doc_metadata = {
                 "source_filename": filename,
                 "doc_id": self.generate_doc_id(filename),
-                "original_filename": relationship.original_file.original_filename if relationship else None,
-                "conversion_id": file_metadata.conversion_id if file_metadata else None,
+                "original_filename": relationship.original_file.original_filename if relationship else filename,
+                "conversion_id": file_metadata.conversion_id if file_metadata else "",
                 "file_size": os.path.getsize(filepath),
                 "vectorization_date": datetime.now().isoformat()
             }
+            
+            # Remove any None values from metadata
+            doc_metadata = {k: v if v is not None else "" for k, v in doc_metadata.items()}
             
             # Check if document already exists
             existing_docs = self.vector_store.similarity_search(
@@ -230,8 +235,7 @@ class LangChainVectorizationService:
                 ids=ids
             )
             
-            # Persist the vector store
-            self.vector_store.persist()
+            # No need to persist - langchain-chroma handles persistence automatically
             
             # Update metadata service
             self.metadata_service.update_vectorization_status(
@@ -416,8 +420,7 @@ class LangChainVectorizationService:
                         where={"doc_id": doc_id}
                     )
                 
-                # Persist the changes
-                self.vector_store.persist()
+                # No need to persist - langchain-chroma handles persistence automatically
                 
                 # Update metadata service
                 self.metadata_service.update_vectorization_status(

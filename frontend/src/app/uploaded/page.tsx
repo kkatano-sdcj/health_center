@@ -1,20 +1,22 @@
 "use client";
 
 import React, { useState, useEffect } from 'react';
-import { listUploadedFiles, getUploadedFileContent, deleteUploadedFile, UploadedFile, UploadedFileContent } from '@/services/api';
 import { UnifiedHeader } from '@/components/layout/UnifiedHeader';
-import { Download, Eye, Trash2, FileText, Search, X, File, Image, FileCode, FileArchive, CheckSquare, Square, RefreshCcw } from 'lucide-react';
-import PreviewModal from '@/components/convert/PreviewModal';
+import { Download, Trash2, FileText, Search, RefreshCw, FileIcon, FileCode, FileSpreadsheet, Image, CheckCircle, CheckSquare, Square, Eye } from 'lucide-react';
+import { getUploadedFiles, downloadFile, deleteFile, batchDeleteFiles, formatFileSize, UploadedFile, getFilePreview } from '@/services/uploadedApi';
+import ReactMarkdown from 'react-markdown';
+import remarkGfm from 'remark-gfm';
 
 export default function UploadedPage() {
   const [files, setFiles] = useState<UploadedFile[]>([]);
   const [loading, setLoading] = useState(true);
   const [searchTerm, setSearchTerm] = useState('');
-  const [selectedFile, setSelectedFile] = useState<UploadedFileContent | null>(null);
-  const [previewOpen, setPreviewOpen] = useState(false);
   const [deleteConfirm, setDeleteConfirm] = useState<string | null>(null);
   const [selectedFiles, setSelectedFiles] = useState<Set<string>>(new Set());
   const [batchDeleteConfirm, setBatchDeleteConfirm] = useState(false);
+  const [previewFile, setPreviewFile] = useState<{name: string, content: string} | null>(null);
+  const [previewOpen, setPreviewOpen] = useState(false);
+  const [loadingPreview, setLoadingPreview] = useState(false);
 
   useEffect(() => {
     loadFiles();
@@ -23,8 +25,8 @@ export default function UploadedPage() {
   const loadFiles = async () => {
     setLoading(true);
     try {
-      const result = await listUploadedFiles();
-      setFiles(result.files);
+      const result = await getUploadedFiles();
+      setFiles(result);
     } catch (error) {
       console.error('Failed to load uploaded files:', error);
     } finally {
@@ -32,73 +34,28 @@ export default function UploadedPage() {
     }
   };
 
-  const getFileIcon = (mimeType: string, extension: string) => {
-    if (mimeType.startsWith('image/')) {
-      return <Image className="w-5 h-5" />;
-    } else if (mimeType.startsWith('text/') || extension === 'json' || extension === 'xml') {
-      return <FileCode className="w-5 h-5" />;
-    } else if (extension === 'zip' || extension === 'rar' || extension === '7z') {
-      return <FileArchive className="w-5 h-5" />;
-    } else {
-      return <File className="w-5 h-5" />;
+  const getFileIcon = (documentType: string) => {
+    switch (documentType) {
+      case 'pdf':
+      case 'word':
+        return <FileText className="w-5 h-5" />;
+      case 'excel':
+        return <FileSpreadsheet className="w-5 h-5" />;
+      case 'powerpoint':
+        return <FileCode className="w-5 h-5" />;
+      case 'image':
+        return <Image className="w-5 h-5" />;
+      case 'text':
+        return <FileText className="w-5 h-5" />;
+      default:
+        return <FileIcon className="w-5 h-5" />;
     }
   };
 
-  const handlePreview = async (file: UploadedFile) => {
-    // Check if file can be previewed in browser
-    const browserViewableTypes = [
-      'application/pdf',
-      'text/',
-      'image/',
-      'video/',
-      'audio/',
-      'application/json',
-      'application/xml',
-      'application/javascript'
-    ];
-    
-    const canPreviewInBrowser = browserViewableTypes.some(type => 
-      file.mime_type.startsWith(type) || file.mime_type === type
-    );
-    
-    if (canPreviewInBrowser) {
-      // Open in new tab for browser preview
-      window.open(`http://localhost:8000/api/v1/conversion/uploaded/preview/${encodeURIComponent(file.filename)}`, '_blank');
-    } else {
-      // For other files, try to get content or download
-      try {
-        const content = await getUploadedFileContent(file.filename);
-        
-        if (content instanceof Blob) {
-          // For binary files, download
-          handleDownload(file.filename, content);
-        } else {
-          // For text files, show in modal
-          setSelectedFile(content);
-          setPreviewOpen(true);
-        }
-      } catch (error) {
-        console.error('Failed to preview file:', error);
-        alert('ファイルのプレビューに失敗しました');
-      }
-    }
-  };
-
-  const handleDownload = async (filename: string, blob?: Blob) => {
+  const handleDownload = async (filename: string) => {
     try {
-      let downloadBlob = blob;
-      
-      if (!downloadBlob) {
-        const content = await getUploadedFileContent(filename);
-        if (content instanceof Blob) {
-          downloadBlob = content;
-        } else {
-          // Convert text content to blob
-          downloadBlob = new Blob([content.content], { type: 'text/plain' });
-        }
-      }
-      
-      const url = window.URL.createObjectURL(downloadBlob);
+      const blob = await downloadFile(filename);
+      const url = window.URL.createObjectURL(blob);
       const a = document.createElement('a');
       a.href = url;
       a.download = filename;
@@ -112,6 +69,20 @@ export default function UploadedPage() {
     }
   };
 
+  const handlePreview = async (filename: string) => {
+    setLoadingPreview(true);
+    try {
+      const content = await getFilePreview(filename);
+      setPreviewFile({ name: filename, content });
+      setPreviewOpen(true);
+    } catch (error) {
+      console.error('Failed to preview file:', error);
+      alert('ファイルのプレビューに失敗しました');
+    } finally {
+      setLoadingPreview(false);
+    }
+  };
+
   const handleDelete = async (filename: string) => {
     if (deleteConfirm !== filename) {
       setDeleteConfirm(filename);
@@ -119,9 +90,9 @@ export default function UploadedPage() {
     }
 
     try {
-      await deleteUploadedFile(filename);
+      await deleteFile(filename);
       setDeleteConfirm(null);
-      await loadFiles(); // Reload the file list
+      await loadFiles();
     } catch (error) {
       console.error('Failed to delete file:', error);
       alert('ファイルの削除に失敗しました');
@@ -142,16 +113,7 @@ export default function UploadedPage() {
     if (selectedFiles.size === filteredFiles.length) {
       setSelectedFiles(new Set());
     } else {
-      setSelectedFiles(new Set(filteredFiles.map(f => f.filename)));
-    }
-  };
-
-  const handleBatchDownload = async () => {
-    const filesArray = Array.from(selectedFiles);
-    for (const filename of filesArray) {
-      await handleDownload(filename);
-      // Add small delay between downloads
-      await new Promise(resolve => setTimeout(resolve, 100));
+      setSelectedFiles(new Set(filteredFiles.map(f => f.name)));
     }
   };
 
@@ -162,29 +124,27 @@ export default function UploadedPage() {
     }
 
     try {
-      const filesArray = Array.from(selectedFiles);
-      for (const filename of filesArray) {
-        await deleteUploadedFile(filename);
-      }
+      const filenames = Array.from(selectedFiles);
+      await batchDeleteFiles(filenames);
       setSelectedFiles(new Set());
       setBatchDeleteConfirm(false);
       await loadFiles();
     } catch (error) {
       console.error('Failed to delete files:', error);
-      alert('ファイルの削除に失敗しました');
+      alert('ファイルの一括削除に失敗しました');
     }
   };
 
-  const handleBatchConvert = async () => {
-    // Navigate to convert page with selected files
-    const filesToConvert = Array.from(selectedFiles).join(',');
-    window.location.href = `/convert?files=${encodeURIComponent(filesToConvert)}`;
+  const handleBatchDownload = async () => {
+    const filesArray = Array.from(selectedFiles);
+    for (const filename of filesArray) {
+      await handleDownload(filename);
+      await new Promise(resolve => setTimeout(resolve, 100));
+    }
   };
 
   const filteredFiles = files.filter(file =>
-    file.filename.toLowerCase().includes(searchTerm.toLowerCase()) ||
-    file.preview.toLowerCase().includes(searchTerm.toLowerCase()) ||
-    file.extension.toLowerCase().includes(searchTerm.toLowerCase())
+    file.name.toLowerCase().includes(searchTerm.toLowerCase())
   );
 
   const formatDate = (dateString: string) => {
@@ -198,6 +158,19 @@ export default function UploadedPage() {
     });
   };
 
+  const getDocumentTypeLabel = (type: string): string => {
+    const labels: { [key: string]: string } = {
+      'pdf': 'PDF',
+      'word': 'Word',
+      'excel': 'Excel',
+      'powerpoint': 'PowerPoint',
+      'text': 'テキスト',
+      'image': '画像',
+      'other': 'その他'
+    };
+    return labels[type] || 'その他';
+  };
+
   return (
     <div className="min-h-screen bg-gray-50">
       <UnifiedHeader />
@@ -205,7 +178,7 @@ export default function UploadedPage() {
       <main className="max-w-7xl mx-auto py-8 px-4 sm:px-6 lg:px-8">
         <div className="mb-8">
           <h1 className="text-3xl font-bold bg-gradient-to-r from-primary to-secondary bg-clip-text text-transparent">Uploaded Files</h1>
-          <p className="mt-2 text-gray-600">アップロード済みファイルの管理</p>
+          <p className="mt-2 text-gray-600">アップロード済みのオリジナルファイル管理</p>
         </div>
 
         {/* Search Bar */}
@@ -217,14 +190,15 @@ export default function UploadedPage() {
                 type="text"
                 value={searchTerm}
                 onChange={(e) => setSearchTerm(e.target.value)}
-                placeholder="ファイル名、拡張子、内容で検索..."
+                placeholder="ファイル名で検索..."
                 className="w-full pl-10 pr-4 py-2 border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary/50 focus:border-primary transition-colors"
               />
             </div>
             <button
               onClick={loadFiles}
-              className="px-4 py-2 bg-gradient-to-r from-primary to-secondary text-white rounded-lg hover:shadow-lg transition-all duration-200"
+              className="px-4 py-2 bg-gradient-to-r from-primary to-secondary text-white rounded-lg hover:shadow-lg transition-all duration-200 flex items-center gap-2"
             >
+              <RefreshCw className="w-4 h-4" />
               更新
             </button>
           </div>
@@ -240,13 +214,6 @@ export default function UploadedPage() {
             {selectedFiles.size > 0 && (
               <div className="flex items-center space-x-2">
                 <button
-                  onClick={handleBatchConvert}
-                  className="px-3 py-1 bg-gradient-to-r from-purple-500 to-purple-600 text-white rounded-lg hover:shadow-md transition-all duration-200 text-sm flex items-center gap-1"
-                >
-                  <RefreshCcw className="w-4 h-4" />
-                  一括変換
-                </button>
-                <button
                   onClick={handleBatchDownload}
                   className="px-3 py-1 bg-gradient-to-r from-green-500 to-emerald-600 text-white rounded-lg hover:shadow-md transition-all duration-200 text-sm flex items-center gap-1"
                 >
@@ -255,7 +222,7 @@ export default function UploadedPage() {
                 </button>
                 <button
                   onClick={handleBatchDelete}
-                  className={`px-3 py-1 rounded-md text-sm flex items-center gap-1 ${
+                  className={`px-3 py-1 rounded-lg text-sm flex items-center gap-1 ${
                     batchDeleteConfirm
                       ? 'bg-red-600 text-white hover:bg-red-700'
                       : 'bg-red-100 text-red-700 hover:bg-red-200'
@@ -267,7 +234,7 @@ export default function UploadedPage() {
                 {batchDeleteConfirm && (
                   <button
                     onClick={() => setBatchDeleteConfirm(false)}
-                    className="px-3 py-1 bg-gray-200 text-gray-700 rounded-md hover:bg-gray-300 text-sm"
+                    className="px-3 py-1 bg-gray-200 text-gray-700 rounded-lg hover:bg-gray-300 text-sm"
                   >
                     キャンセル
                   </button>
@@ -294,87 +261,96 @@ export default function UploadedPage() {
           ) : (
             <>
               {/* Select All Header */}
-              <div className="px-6 py-3 border-b border-gray-200 bg-gray-50">
-                <button
-                  onClick={toggleSelectAll}
-                  className="flex items-center space-x-2 text-sm text-gray-700 hover:text-primary transition-colors"
-                >
-                  {selectedFiles.size === filteredFiles.length ? (
-                    <CheckSquare className="w-4 h-4" />
-                  ) : (
-                    <Square className="w-4 h-4" />
-                  )}
-                  <span>すべて選択</span>
-                </button>
-              </div>
+              {filteredFiles.length > 0 && (
+                <div className="px-6 py-3 border-b border-gray-200 bg-gray-50">
+                  <button
+                    onClick={toggleSelectAll}
+                    className="flex items-center space-x-2 text-sm text-gray-700 hover:text-primary transition-colors"
+                  >
+                    {selectedFiles.size === filteredFiles.length ? (
+                      <CheckSquare className="w-4 h-4" />
+                    ) : (
+                      <Square className="w-4 h-4" />
+                    )}
+                    <span>すべて選択</span>
+                  </button>
+                </div>
+              )}
               <div className="divide-y divide-gray-200">
                 {filteredFiles.map((file) => (
-                  <div key={file.filename} className="p-6 hover:bg-gray-50 transition-colors">
-                    <div className="flex items-start">
-                      <button
-                        onClick={() => toggleFileSelection(file.filename)}
-                        className="mr-4 mt-1 text-gray-400 hover:text-primary transition-colors"
-                      >
-                        {selectedFiles.has(file.filename) ? (
-                          <CheckSquare className="w-5 h-5" />
-                        ) : (
-                          <Square className="w-5 h-5" />
-                        )}
-                      </button>
-                      <div className="flex-1">
-                        <div className="flex items-center space-x-2 mb-1">
-                          <span className="text-gray-500">
-                            {getFileIcon(file.mime_type, file.extension)}
-                          </span>
-                          <h3 className="text-lg font-medium text-gray-900">
-                            {file.filename}
-                          </h3>
-                          {file.extension && (
-                            <span className="px-2 py-1 text-xs bg-gray-100 text-gray-700 rounded">
-                              .{file.extension}
-                            </span>
+                  <div key={file.name} className="p-6 hover:bg-gray-50 transition-colors">
+                    <div className="flex items-center justify-between">
+                      <div className="flex items-center space-x-4">
+                        <button
+                          onClick={() => toggleFileSelection(file.name)}
+                          className="text-gray-400 hover:text-primary transition-colors"
+                        >
+                          {selectedFiles.has(file.name) ? (
+                            <CheckSquare className="w-5 h-5" />
+                          ) : (
+                            <Square className="w-5 h-5" />
+                          )}
+                        </button>
+                        <div className="text-gray-400">
+                          {getFileIcon(file.document_type)}
+                        </div>
+                        <div>
+                          <div className="flex items-center gap-2">
+                            <h3 className="text-lg font-medium text-gray-900">
+                              {file.name}
+                            </h3>
+                            {file.has_converted && (
+                              <span className="flex items-center gap-1 px-2 py-1 bg-green-100 text-green-700 text-xs rounded-full">
+                                <CheckCircle className="w-3 h-3" />
+                                変換済み
+                              </span>
+                            )}
+                          </div>
+                          <div className="text-sm text-gray-500 mt-1">
+                            {formatFileSize(file.size)} • {formatDate(file.modified)} • {getDocumentTypeLabel(file.document_type)}
+                          </div>
+                          {file.converted_at && (
+                            <div className="text-xs text-gray-400 mt-1">
+                              変換日時: {formatDate(file.converted_at)}
+                            </div>
                           )}
                         </div>
-                        <div className="text-sm text-gray-500 mb-2">
-                          {file.size_formatted} • {formatDate(file.modified)} • {file.mime_type}
-                        </div>
-                        <div className="text-sm text-gray-600 line-clamp-2">
-                          {file.preview}
-                        </div>
                       </div>
-                      <div className="flex items-center space-x-2 ml-4">
+                      <div className="flex items-center space-x-2">
+                        {file.has_converted && (
+                          <button
+                            onClick={() => handlePreview(file.name)}
+                            disabled={loadingPreview}
+                            className="px-4 py-2 bg-gradient-to-r from-primary to-secondary text-white rounded-lg hover:shadow-lg transition-all duration-200 flex items-center gap-2 disabled:opacity-50"
+                          >
+                            <Eye className="w-4 h-4" />
+                            プレビュー
+                          </button>
+                        )}
                         <button
-                          onClick={() => handlePreview(file)}
-                          className="p-2 text-primary hover:bg-primary/10 rounded-lg transition-colors"
-                          title="プレビュー"
+                          onClick={() => handleDownload(file.name)}
+                          className="px-4 py-2 bg-gradient-to-r from-green-500 to-emerald-600 text-white rounded-lg hover:shadow-lg transition-all duration-200 flex items-center gap-2"
                         >
-                          <Eye className="w-5 h-5" />
+                          <Download className="w-4 h-4" />
+                          ダウンロード
                         </button>
                         <button
-                          onClick={() => handleDownload(file.filename)}
-                          className="p-2 text-green-600 hover:bg-green-50 rounded-lg transition-colors"
-                          title="ダウンロード"
-                        >
-                          <Download className="w-5 h-5" />
-                        </button>
-                        <button
-                          onClick={() => handleDelete(file.filename)}
-                          className={`px-3 py-1.5 rounded-lg transition-colors text-sm font-medium ${
-                            deleteConfirm === file.filename
-                              ? 'text-white bg-gradient-to-r from-red-500 to-red-600 hover:shadow-md'
-                              : 'text-red-600 hover:bg-red-50'
+                          onClick={() => handleDelete(file.name)}
+                          className={`px-4 py-2 rounded-lg transition-all duration-200 ${
+                            deleteConfirm === file.name
+                              ? 'bg-red-600 text-white hover:bg-red-700'
+                              : 'bg-red-100 text-red-700 hover:bg-red-200'
                           }`}
-                          title={deleteConfirm === file.filename ? 'クリックして削除を確認' : '削除'}
                         >
-                          削除
+                          <Trash2 className="w-4 h-4 inline mr-1" />
+                          {deleteConfirm === file.name ? '削除を確認' : '削除'}
                         </button>
-                        {deleteConfirm === file.filename && (
+                        {deleteConfirm === file.name && (
                           <button
                             onClick={() => setDeleteConfirm(null)}
-                            className="p-2 text-gray-600 hover:bg-gray-100 rounded-md transition-colors"
-                            title="キャンセル"
+                            className="px-4 py-2 bg-gray-200 text-gray-700 rounded-lg hover:bg-gray-300 transition-colors"
                           >
-                            <X className="w-5 h-5" />
+                            キャンセル
                           </button>
                         )}
                       </div>
@@ -387,16 +363,64 @@ export default function UploadedPage() {
         </div>
 
         {/* Preview Modal */}
-        {selectedFile && (
-          <PreviewModal
-            isOpen={previewOpen}
-            content={selectedFile.content}
-            fileName={selectedFile.filename}
-            onClose={() => {
-              setPreviewOpen(false);
-              setSelectedFile(null);
-            }}
-          />
+        {previewFile && previewOpen && (
+          <div className="fixed inset-0 bg-black/60 backdrop-blur-sm z-50 flex items-center justify-center p-4">
+            <div className="bg-white rounded-2xl shadow-2xl max-w-6xl w-full max-h-[90vh] flex flex-col">
+              <div className="px-8 py-5 border-b border-gray-200 flex items-center justify-between bg-gradient-to-r from-gray-50 to-white">
+                <h2 className="text-2xl font-bold text-gray-900">
+                  {previewFile.name}
+                </h2>
+                <div className="flex items-center gap-3">
+                  <button
+                    onClick={() => handleDownload(previewFile.name)}
+                    className="px-5 py-2.5 bg-gradient-to-r from-green-500 to-emerald-600 text-white rounded-lg hover:shadow-lg transition-all duration-200 flex items-center gap-2">
+                    <Download className="w-5 h-5" />
+                    ダウンロード
+                  </button>
+                  <button
+                    onClick={() => {
+                      setPreviewOpen(false);
+                      setPreviewFile(null);
+                    }}
+                    className="p-2 text-gray-500 hover:text-gray-700 hover:bg-gray-100 rounded-lg transition-all duration-200">
+                    <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+                    </svg>
+                  </button>
+                </div>
+              </div>
+              <div className="flex-1 overflow-auto bg-gradient-to-b from-gray-50 to-white">
+                <div className="p-8">
+                  <article className="prose prose-lg prose-gray max-w-none
+                    prose-headings:font-bold prose-headings:text-gray-900
+                    prose-h1:text-3xl prose-h1:mt-8 prose-h1:mb-4 prose-h1:border-b prose-h1:border-gray-200 prose-h1:pb-3
+                    prose-h2:text-2xl prose-h2:mt-6 prose-h2:mb-3 prose-h2:text-gray-800
+                    prose-h3:text-xl prose-h3:mt-4 prose-h3:mb-2 prose-h3:text-gray-700
+                    prose-p:text-gray-700 prose-p:leading-relaxed prose-p:mb-4
+                    prose-a:text-blue-600 prose-a:no-underline hover:prose-a:underline
+                    prose-strong:text-gray-900 prose-strong:font-semibold
+                    prose-code:text-pink-600 prose-code:bg-gray-100 prose-code:px-1.5 prose-code:py-0.5 prose-code:rounded prose-code:font-mono prose-code:text-sm
+                    prose-pre:bg-gray-900 prose-pre:text-gray-100 prose-pre:rounded-xl prose-pre:p-4 prose-pre:overflow-x-auto prose-pre:shadow-lg
+                    prose-blockquote:border-l-4 prose-blockquote:border-blue-500 prose-blockquote:pl-4 prose-blockquote:italic prose-blockquote:text-gray-600 prose-blockquote:bg-blue-50 prose-blockquote:py-2 prose-blockquote:pr-4 prose-blockquote:rounded-r
+                    prose-ul:list-disc prose-ul:pl-6 prose-ul:space-y-2 prose-ul:text-gray-700
+                    prose-ol:list-decimal prose-ol:pl-6 prose-ol:space-y-2 prose-ol:text-gray-700
+                    prose-li:text-gray-700 prose-li:leading-relaxed
+                    prose-table:w-full prose-table:border-collapse prose-table:overflow-hidden prose-table:rounded-lg prose-table:shadow-sm
+                    prose-thead:bg-gradient-to-r prose-thead:from-gray-100 prose-thead:to-gray-50
+                    prose-th:text-left prose-th:font-semibold prose-th:text-gray-900 prose-th:px-4 prose-th:py-3 prose-th:border-b prose-th:border-gray-200
+                    prose-td:px-4 prose-td:py-3 prose-td:border-b prose-td:border-gray-100 prose-td:text-gray-700
+                    prose-tbody:bg-white
+                    prose-tr:hover:bg-gray-50 prose-tr:transition-colors
+                    prose-img:rounded-lg prose-img:shadow-md prose-img:mx-auto
+                    prose-hr:border-gray-200 prose-hr:my-8">
+                    <ReactMarkdown remarkPlugins={[remarkGfm]}>
+                      {previewFile.content}
+                    </ReactMarkdown>
+                  </article>
+                </div>
+              </div>
+            </div>
+          </div>
         )}
       </main>
     </div>

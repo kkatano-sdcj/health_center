@@ -30,24 +30,23 @@ class MarkItDownAIService:
     
     def _initialize_services(self):
         """サービスの初期化"""
-        # 通常モード用のMarkItDown（プラグイン有効）
-        self.md_normal = MarkItDown(enable_plugins=True)
+        # 通常モード用のMarkItDown
+        self.md_normal = MarkItDown()
         
         # プラグイン有効版（拡張機能用）
-        self.md_with_plugins = MarkItDown(enable_plugins=True)
+        self.md_with_plugins = MarkItDown()
         
-        # AI mode用のMarkItDown（LLM統合 + プラグイン）
+        # AI mode用のMarkItDown（LLM統合）
         api_key = os.getenv("OPENAI_API_KEY")
         if api_key:
             try:
                 self.llm_client = OpenAI(api_key=api_key)
-                # MarkItDownにLLMクライアントを直接渡す（MarkitDown.mdcのパターンに従う）
+                # MarkItDownにLLMクライアントを直接渡す
                 self.md_ai = MarkItDown(
                     llm_client=self.llm_client,
-                    llm_model=self.llm_model,
-                    enable_plugins=True
+                    llm_model=self.llm_model
                 )
-                logger.info(f"AI mode initialized with {self.llm_model} and plugins enabled")
+                logger.info(f"AI mode initialized with {self.llm_model}")
             except Exception as e:
                 logger.error(f"Failed to initialize OpenAI client: {e}")
                 self.md_ai = self.md_with_plugins
@@ -71,8 +70,7 @@ class MarkItDownAIService:
                 # Azure Document Intelligence統合版のMarkItDown
                 self.md_azure = MarkItDown(
                     docintel_endpoint=endpoint,
-                    docintel_key=key,
-                    enable_plugins=True
+                    docintel_key=key
                 )
                 logger.info("Azure Document Intelligence initialized successfully")
             except Exception as e:

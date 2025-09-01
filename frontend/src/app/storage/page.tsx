@@ -1,22 +1,23 @@
 "use client";
 
 import React, { useState, useEffect } from 'react';
-import { listStorageFiles, getStorageFileContent, deleteStorageFile, downloadFile, StorageFile, StorageFileContent } from '@/services/api';
 import { UnifiedHeader } from '@/components/layout/UnifiedHeader';
-import { Download, Eye, Trash2, FileText, Search, X, CheckSquare, Square, Database, Loader } from 'lucide-react';
-import PreviewModal from '@/components/convert/PreviewModal';
+import { Eye, FileText, Search, RefreshCw, FileIcon, FileCode, FileSpreadsheet, Trash2, CheckSquare, Square, Download, Database, CheckCircle } from 'lucide-react';
+import { getConvertedFiles, getFileContent, deleteFile, batchDeleteFiles, formatFileSize, ConvertedFile, FileContent, addToVectorDB } from '@/services/storageApi';
+import ReactMarkdown from 'react-markdown';
+import remarkGfm from 'remark-gfm';
 
 export default function StoragePage() {
-  const [files, setFiles] = useState<StorageFile[]>([]);
+  const [files, setFiles] = useState<ConvertedFile[]>([]);
   const [loading, setLoading] = useState(true);
   const [searchTerm, setSearchTerm] = useState('');
-  const [selectedFile, setSelectedFile] = useState<StorageFileContent | null>(null);
+  const [selectedFile, setSelectedFile] = useState<FileContent | null>(null);
   const [previewOpen, setPreviewOpen] = useState(false);
-  const [deleteConfirm, setDeleteConfirm] = useState<string | null>(null);
+  const [loadingPreview, setLoadingPreview] = useState(false);
   const [selectedFiles, setSelectedFiles] = useState<Set<string>>(new Set());
+  const [deleteConfirm, setDeleteConfirm] = useState<string | null>(null);
   const [batchDeleteConfirm, setBatchDeleteConfirm] = useState(false);
-  const [vectorizing, setVectorizing] = useState(false);
-  const [vectorizationResults, setVectorizationResults] = useState<any>(null);
+  const [addingToVectorDB, setAddingToVectorDB] = useState(false);
 
   useEffect(() => {
     loadFiles();
@@ -25,8 +26,8 @@ export default function StoragePage() {
   const loadFiles = async () => {
     setLoading(true);
     try {
-      const result = await listStorageFiles();
-      setFiles(result.files);
+      const result = await getConvertedFiles();
+      setFiles(result);
     } catch (error) {
       console.error('Failed to load files:', error);
     } finally {
@@ -35,19 +36,45 @@ export default function StoragePage() {
   };
 
   const handlePreview = async (filename: string) => {
+    setLoadingPreview(true);
     try {
-      const content = await getStorageFileContent(filename);
+      const content = await getFileContent(filename);
       setSelectedFile(content);
       setPreviewOpen(true);
     } catch (error) {
       console.error('Failed to preview file:', error);
       alert('ファイルのプレビューに失敗しました');
+    } finally {
+      setLoadingPreview(false);
     }
   };
 
-  const handleDownload = async (filename: string) => {
+  const handleDelete = async (filename: string) => {
+    if (deleteConfirm !== filename) {
+      setDeleteConfirm(filename);
+      return;
+    }
+
     try {
-      const blob = await downloadFile(filename);
+      await deleteFile(filename);
+      setDeleteConfirm(null);
+      await loadFiles();
+    } catch (error) {
+      console.error('Failed to delete file:', error);
+      alert('ファイルの削除に失敗しました');
+    }
+  };
+
+  const handleDownload = async (filename: string, content?: string) => {
+    try {
+      let blob: Blob;
+      if (content) {
+        blob = new Blob([content], { type: 'text/markdown' });
+      } else {
+        const fileContent = await getFileContent(filename);
+        blob = new Blob([fileContent.content], { type: 'text/markdown' });
+      }
+      
       const url = window.URL.createObjectURL(blob);
       const a = document.createElement('a');
       a.href = url;
@@ -59,22 +86,6 @@ export default function StoragePage() {
     } catch (error) {
       console.error('Download error:', error);
       alert('ファイルのダウンロードに失敗しました');
-    }
-  };
-
-  const handleDelete = async (filename: string) => {
-    if (deleteConfirm !== filename) {
-      setDeleteConfirm(filename);
-      return;
-    }
-
-    try {
-      await deleteStorageFile(filename);
-      setDeleteConfirm(null);
-      await loadFiles(); // Reload the file list
-    } catch (error) {
-      console.error('Failed to delete file:', error);
-      alert('ファイルの削除に失敗しました');
     }
   };
 
@@ -92,16 +103,7 @@ export default function StoragePage() {
     if (selectedFiles.size === filteredFiles.length) {
       setSelectedFiles(new Set());
     } else {
-      setSelectedFiles(new Set(filteredFiles.map(f => f.filename)));
-    }
-  };
-
-  const handleBatchDownload = async () => {
-    const filesArray = Array.from(selectedFiles);
-    for (const filename of filesArray) {
-      await handleDownload(filename);
-      // Add small delay between downloads
-      await new Promise(resolve => setTimeout(resolve, 100));
+      setSelectedFiles(new Set(filteredFiles.map(f => f.name)));
     }
   };
 
@@ -112,96 +114,53 @@ export default function StoragePage() {
     }
 
     try {
-      const filesArray = Array.from(selectedFiles);
-      for (const filename of filesArray) {
-        await deleteStorageFile(filename);
-      }
+      const filenames = Array.from(selectedFiles);
+      await batchDeleteFiles(filenames);
       setSelectedFiles(new Set());
       setBatchDeleteConfirm(false);
       await loadFiles();
     } catch (error) {
       console.error('Failed to delete files:', error);
-      alert('ファイルの削除に失敗しました');
+      alert('ファイルの一括削除に失敗しました');
     }
   };
 
-  const handleVectorizeFiles = async () => {
-    if (selectedFiles.size === 0) {
-      alert('ベクトル化するファイルを選択してください');
-      return;
-    }
-
-    setVectorizing(true);
-    setVectorizationResults(null);
-
-    try {
-      const filesArray = Array.from(selectedFiles);
-      const response = await fetch('http://localhost:8000/api/v1/conversion/vectorize/files', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({ filenames: filesArray }),
-      });
-
-      if (!response.ok) {
-        throw new Error('Vectorization failed');
-      }
-
-      const result = await response.json();
-      setVectorizationResults(result);
-
-      // Show success message
-      if (result.successful > 0) {
-        alert(`${result.successful}件のファイルをベクトルDBに登録しました\n${result.failed > 0 ? `${result.failed}件失敗しました` : ''}`);
-      } else {
-        alert('ベクトル化に失敗しました');
-      }
-    } catch (error) {
-      console.error('Failed to vectorize files:', error);
-      alert('ベクトル化に失敗しました');
-    } finally {
-      setVectorizing(false);
+  const handleBatchDownload = async () => {
+    const filesArray = Array.from(selectedFiles);
+    for (const filename of filesArray) {
+      await handleDownload(filename);
+      await new Promise(resolve => setTimeout(resolve, 100));
     }
   };
 
-  const handleVectorizeAll = async () => {
-    if (!confirm('すべてのマークダウンファイルをベクトルDBに登録しますか？')) {
-      return;
-    }
-
-    setVectorizing(true);
-    setVectorizationResults(null);
-
+  const handleAddToVectorDB = async () => {
+    setAddingToVectorDB(true);
     try {
-      const response = await fetch('http://localhost:8000/api/v1/conversion/vectorize/all', {
-        method: 'POST',
-      });
-
-      if (!response.ok) {
-        throw new Error('Vectorization failed');
+      const filenames = Array.from(selectedFiles);
+      const result = await addToVectorDB(filenames);
+      
+      if (result.total_added > 0) {
+        alert(`${result.total_added}件のファイルをベクトルDBに追加しました`);
       }
-
-      const result = await response.json();
-      setVectorizationResults(result);
-
-      // Show success message
-      if (result.successful > 0) {
-        alert(`${result.successful}件のファイルをベクトルDBに登録しました\n${result.failed > 0 ? `${result.failed}件失敗しました` : ''}`);
-      } else {
-        alert('ベクトル化に失敗しました');
+      
+      if (result.total_errors > 0) {
+        const errorMessages = result.errors.map((e: any) => `${e.filename}: ${e.error}`).join('\n');
+        alert(`エラーが発生しました:\n${errorMessages}`);
       }
+      
+      setSelectedFiles(new Set());
+      await loadFiles();
     } catch (error) {
-      console.error('Failed to vectorize all files:', error);
-      alert('ベクトル化に失敗しました');
+      console.error('Failed to add files to vector DB:', error);
+      alert('ベクトルDBへの追加に失敗しました');
     } finally {
-      setVectorizing(false);
+      setAddingToVectorDB(false);
     }
   };
 
   const filteredFiles = files.filter(file =>
-    file.filename.toLowerCase().includes(searchTerm.toLowerCase()) ||
-    file.preview.toLowerCase().includes(searchTerm.toLowerCase())
+    file.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
+    file.original_name.toLowerCase().includes(searchTerm.toLowerCase())
   );
 
   const formatDate = (dateString: string) => {
@@ -215,6 +174,24 @@ export default function StoragePage() {
     });
   };
 
+  const getFileIcon = (fileType: string) => {
+    switch (fileType) {
+      case 'pdf':
+      case 'docx':
+      case 'doc':
+        return <FileText className="w-5 h-5" />;
+      case 'xlsx':
+      case 'xls':
+      case 'csv':
+        return <FileSpreadsheet className="w-5 h-5" />;
+      case 'pptx':
+      case 'ppt':
+        return <FileCode className="w-5 h-5" />;
+      default:
+        return <FileIcon className="w-5 h-5" />;
+    }
+  };
+
   return (
     <div className="min-h-screen bg-gray-50">
       <UnifiedHeader />
@@ -222,7 +199,7 @@ export default function StoragePage() {
       <main className="max-w-7xl mx-auto py-8 px-4 sm:px-6 lg:px-8">
         <div className="mb-8">
           <h1 className="text-3xl font-bold bg-gradient-to-r from-primary to-secondary bg-clip-text text-transparent">Storage</h1>
-          <p className="mt-2 text-gray-600">変換済みファイルの管理</p>
+          <p className="mt-2 text-gray-600">変換済みマークダウンファイルの管理</p>
         </div>
 
         {/* Search Bar */}
@@ -234,14 +211,15 @@ export default function StoragePage() {
                 type="text"
                 value={searchTerm}
                 onChange={(e) => setSearchTerm(e.target.value)}
-                placeholder="ファイル名または内容で検索..."
+                placeholder="ファイル名で検索..."
                 className="w-full pl-10 pr-4 py-2 border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary/50 focus:border-primary transition-colors"
               />
             </div>
             <button
               onClick={loadFiles}
-              className="px-4 py-2 bg-gradient-to-r from-primary to-secondary text-white rounded-lg hover:shadow-lg transition-all duration-200"
+              className="px-4 py-2 bg-gradient-to-r from-primary to-secondary text-white rounded-lg hover:shadow-lg transition-all duration-200 flex items-center gap-2"
             >
+              <RefreshCw className="w-4 h-4" />
               更新
             </button>
           </div>
@@ -254,56 +232,44 @@ export default function StoragePage() {
                 </span>
               )}
             </div>
-            <div className="flex items-center space-x-2">
-              {selectedFiles.size > 0 && (
-                <>
-                  <button
-                    onClick={handleVectorizeFiles}
-                    disabled={vectorizing}
-                    className="px-3 py-1 bg-gradient-to-r from-indigo-500 to-purple-600 text-white rounded-lg hover:shadow-md transition-all duration-200 text-sm flex items-center gap-1 disabled:opacity-50 disabled:cursor-not-allowed"
-                  >
-                    {vectorizing ? <Loader className="w-4 h-4 animate-spin" /> : <Database className="w-4 h-4" />}
-                    ベクトルDBに登録
-                  </button>
-                  <button
-                    onClick={handleBatchDownload}
-                    className="px-3 py-1 bg-gradient-to-r from-green-500 to-emerald-600 text-white rounded-lg hover:shadow-md transition-all duration-200 text-sm flex items-center gap-1"
-                  >
-                    <Download className="w-4 h-4" />
-                    一括ダウンロード
-                  </button>
-                  <button
-                    onClick={handleBatchDelete}
-                    className={`px-3 py-1 rounded-md text-sm flex items-center gap-1 ${
-                      batchDeleteConfirm
-                        ? 'bg-red-600 text-white hover:bg-red-700'
-                        : 'bg-red-100 text-red-700 hover:bg-red-200'
-                    }`}
-                  >
-                    <Trash2 className="w-4 h-4" />
-                    {batchDeleteConfirm ? '削除を確認' : '一括削除'}
-                  </button>
-                  {batchDeleteConfirm && (
-                    <button
-                      onClick={() => setBatchDeleteConfirm(false)}
-                      className="px-3 py-1 bg-gray-200 text-gray-700 rounded-md hover:bg-gray-300 text-sm"
-                    >
-                      キャンセル
-                    </button>
-                  )}
-                </>
-              )}
-              {selectedFiles.size === 0 && (
+            {selectedFiles.size > 0 && (
+              <div className="flex items-center space-x-2">
                 <button
-                  onClick={handleVectorizeAll}
-                  disabled={vectorizing}
-                  className="px-3 py-1 bg-gradient-to-r from-indigo-500 to-purple-600 text-white rounded-lg hover:shadow-md transition-all duration-200 text-sm flex items-center gap-1 disabled:opacity-50 disabled:cursor-not-allowed"
+                  onClick={handleAddToVectorDB}
+                  disabled={addingToVectorDB}
+                  className="px-3 py-1 bg-gradient-to-r from-purple-500 to-indigo-600 text-white rounded-lg hover:shadow-md transition-all duration-200 text-sm flex items-center gap-1 disabled:opacity-50"
                 >
-                  {vectorizing ? <Loader className="w-4 h-4 animate-spin" /> : <Database className="w-4 h-4" />}
-                  すべてをベクトルDBに登録
+                  <Database className="w-4 h-4" />
+                  ベクトルDBに追加
                 </button>
-              )}
-            </div>
+                <button
+                  onClick={handleBatchDownload}
+                  className="px-3 py-1 bg-gradient-to-r from-green-500 to-emerald-600 text-white rounded-lg hover:shadow-md transition-all duration-200 text-sm flex items-center gap-1"
+                >
+                  <Download className="w-4 h-4" />
+                  一括ダウンロード
+                </button>
+                <button
+                  onClick={handleBatchDelete}
+                  className={`px-3 py-1 rounded-lg text-sm flex items-center gap-1 ${
+                    batchDeleteConfirm
+                      ? 'bg-red-600 text-white hover:bg-red-700'
+                      : 'bg-red-100 text-red-700 hover:bg-red-200'
+                  }`}
+                >
+                  <Trash2 className="w-4 h-4" />
+                  {batchDeleteConfirm ? '削除を確認' : '一括削除'}
+                </button>
+                {batchDeleteConfirm && (
+                  <button
+                    onClick={() => setBatchDeleteConfirm(false)}
+                    className="px-3 py-1 bg-gray-200 text-gray-700 rounded-lg hover:bg-gray-300 text-sm"
+                  >
+                    キャンセル
+                  </button>
+                )}
+              </div>
+            )}
           </div>
         </div>
 
@@ -324,77 +290,82 @@ export default function StoragePage() {
           ) : (
             <>
               {/* Select All Header */}
-              <div className="px-6 py-3 border-b border-gray-200 bg-gray-50">
-                <button
-                  onClick={toggleSelectAll}
-                  className="flex items-center space-x-2 text-sm text-gray-700 hover:text-primary transition-colors"
-                >
-                  {selectedFiles.size === filteredFiles.length ? (
-                    <CheckSquare className="w-4 h-4" />
-                  ) : (
-                    <Square className="w-4 h-4" />
-                  )}
-                  <span>すべて選択</span>
-                </button>
-              </div>
+              {filteredFiles.length > 0 && (
+                <div className="px-6 py-3 border-b border-gray-200 bg-gray-50">
+                  <button
+                    onClick={toggleSelectAll}
+                    className="flex items-center space-x-2 text-sm text-gray-700 hover:text-primary transition-colors"
+                  >
+                    {selectedFiles.size === filteredFiles.length ? (
+                      <CheckSquare className="w-4 h-4" />
+                    ) : (
+                      <Square className="w-4 h-4" />
+                    )}
+                    <span>すべて選択</span>
+                  </button>
+                </div>
+              )}
               <div className="divide-y divide-gray-200">
                 {filteredFiles.map((file) => (
-                  <div key={file.filename} className="p-6 hover:bg-gray-50 transition-colors">
-                    <div className="flex items-start">
-                      <button
-                        onClick={() => toggleFileSelection(file.filename)}
-                        className="mr-4 mt-1 text-gray-400 hover:text-primary transition-colors"
-                      >
-                        {selectedFiles.has(file.filename) ? (
-                          <CheckSquare className="w-5 h-5" />
-                        ) : (
-                          <Square className="w-5 h-5" />
-                        )}
-                      </button>
-                      <div className="flex-1">
-                        <h3 className="text-lg font-medium text-gray-900 mb-1">
-                          {file.filename}
-                        </h3>
-                        <div className="text-sm text-gray-500 mb-2">
-                          {file.size_formatted} • {formatDate(file.modified)}
+                  <div key={file.name} className="p-6 hover:bg-gray-50 transition-colors">
+                    <div className="flex items-center justify-between">
+                      <div className="flex items-center space-x-4">
+                        <button
+                          onClick={() => toggleFileSelection(file.name)}
+                          className="text-gray-400 hover:text-primary transition-colors"
+                        >
+                          {selectedFiles.has(file.name) ? (
+                            <CheckSquare className="w-5 h-5" />
+                          ) : (
+                            <Square className="w-5 h-5" />
+                          )}
+                        </button>
+                        <div className="text-gray-400">
+                          {getFileIcon(file.file_type)}
                         </div>
-                        <div className="text-sm text-gray-600 line-clamp-2">
-                          {file.preview}
+                        <div>
+                          <div className="flex items-center gap-2">
+                            <h3 className="text-lg font-medium text-gray-900">
+                              {file.name}
+                            </h3>
+                            {file.in_vectordb && (
+                              <span className="flex items-center gap-1 px-2 py-1 bg-purple-100 text-purple-700 text-xs rounded-full">
+                                <CheckCircle className="w-3 h-3" />
+                                ベクトルDB追加済
+                              </span>
+                            )}
+                          </div>
+                          <div className="text-sm text-gray-500 mt-1">
+                            {formatFileSize(file.size)} • {formatDate(file.modified)}
+                          </div>
                         </div>
                       </div>
-                      <div className="flex items-center space-x-2 ml-4">
+                      <div className="flex items-center space-x-2">
                         <button
-                          onClick={() => handlePreview(file.filename)}
-                          className="p-2 text-primary hover:bg-primary/10 rounded-lg transition-colors"
-                          title="プレビュー"
+                          onClick={() => handlePreview(file.name)}
+                          disabled={loadingPreview}
+                          className="px-4 py-2 bg-gradient-to-r from-primary to-secondary text-white rounded-lg hover:shadow-lg transition-all duration-200 flex items-center gap-2 disabled:opacity-50"
                         >
-                          <Eye className="w-5 h-5" />
+                          <Eye className="w-4 h-4" />
+                          プレビュー
                         </button>
                         <button
-                          onClick={() => handleDownload(file.filename)}
-                          className="p-2 text-green-600 hover:bg-green-50 rounded-lg transition-colors"
-                          title="ダウンロード"
-                        >
-                          <Download className="w-5 h-5" />
-                        </button>
-                        <button
-                          onClick={() => handleDelete(file.filename)}
-                          className={`px-3 py-1.5 rounded-lg transition-colors text-sm font-medium ${
-                            deleteConfirm === file.filename
-                              ? 'text-white bg-gradient-to-r from-red-500 to-red-600 hover:shadow-md'
-                              : 'text-red-600 hover:bg-red-50'
+                          onClick={() => handleDelete(file.name)}
+                          className={`px-4 py-2 rounded-lg transition-all duration-200 ${
+                            deleteConfirm === file.name
+                              ? 'bg-red-600 text-white hover:bg-red-700'
+                              : 'bg-red-100 text-red-700 hover:bg-red-200'
                           }`}
-                          title={deleteConfirm === file.filename ? 'クリックして削除を確認' : '削除'}
                         >
-                          削除
+                          <Trash2 className="w-4 h-4 inline mr-1" />
+                          {deleteConfirm === file.name ? '削除を確認' : '削除'}
                         </button>
-                        {deleteConfirm === file.filename && (
+                        {deleteConfirm === file.name && (
                           <button
                             onClick={() => setDeleteConfirm(null)}
-                            className="p-2 text-gray-600 hover:bg-gray-100 rounded-md transition-colors"
-                            title="キャンセル"
+                            className="px-4 py-2 bg-gray-200 text-gray-700 rounded-lg hover:bg-gray-300 transition-colors"
                           >
-                            <X className="w-5 h-5" />
+                            キャンセル
                           </button>
                         )}
                       </div>
@@ -407,16 +378,64 @@ export default function StoragePage() {
         </div>
 
         {/* Preview Modal */}
-        {selectedFile && (
-          <PreviewModal
-            isOpen={previewOpen}
-            content={selectedFile.content}
-            fileName={selectedFile.filename}
-            onClose={() => {
-              setPreviewOpen(false);
-              setSelectedFile(null);
-            }}
-          />
+        {selectedFile && previewOpen && (
+          <div className="fixed inset-0 bg-black/60 backdrop-blur-sm z-50 flex items-center justify-center p-4">
+            <div className="bg-white rounded-2xl shadow-2xl max-w-6xl w-full max-h-[90vh] flex flex-col">
+              <div className="px-8 py-5 border-b border-gray-200 flex items-center justify-between bg-gradient-to-r from-gray-50 to-white">
+                <h2 className="text-2xl font-bold text-gray-900">
+                  {selectedFile.metadata?.original_filename || selectedFile.filename}
+                </h2>
+                <div className="flex items-center gap-3">
+                  <button
+                    onClick={() => handleDownload(selectedFile.filename, selectedFile.content)}
+                    className="px-5 py-2.5 bg-gradient-to-r from-green-500 to-emerald-600 text-white rounded-lg hover:shadow-lg transition-all duration-200 flex items-center gap-2">
+                    <Download className="w-5 h-5" />
+                    ダウンロード
+                  </button>
+                  <button
+                    onClick={() => {
+                      setPreviewOpen(false);
+                      setSelectedFile(null);
+                    }}
+                    className="p-2 text-gray-500 hover:text-gray-700 hover:bg-gray-100 rounded-lg transition-all duration-200">
+                    <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+                    </svg>
+                  </button>
+                </div>
+              </div>
+              <div className="flex-1 overflow-auto bg-gradient-to-b from-gray-50 to-white">
+                <div className="p-8">
+                  <article className="prose prose-lg prose-gray max-w-none
+                    prose-headings:font-bold prose-headings:text-gray-900
+                    prose-h1:text-3xl prose-h1:mt-8 prose-h1:mb-4 prose-h1:border-b prose-h1:border-gray-200 prose-h1:pb-3
+                    prose-h2:text-2xl prose-h2:mt-6 prose-h2:mb-3 prose-h2:text-gray-800
+                    prose-h3:text-xl prose-h3:mt-4 prose-h3:mb-2 prose-h3:text-gray-700
+                    prose-p:text-gray-700 prose-p:leading-relaxed prose-p:mb-4
+                    prose-a:text-blue-600 prose-a:no-underline hover:prose-a:underline
+                    prose-strong:text-gray-900 prose-strong:font-semibold
+                    prose-code:text-pink-600 prose-code:bg-gray-100 prose-code:px-1.5 prose-code:py-0.5 prose-code:rounded prose-code:font-mono prose-code:text-sm
+                    prose-pre:bg-gray-900 prose-pre:text-gray-100 prose-pre:rounded-xl prose-pre:p-4 prose-pre:overflow-x-auto prose-pre:shadow-lg
+                    prose-blockquote:border-l-4 prose-blockquote:border-blue-500 prose-blockquote:pl-4 prose-blockquote:italic prose-blockquote:text-gray-600 prose-blockquote:bg-blue-50 prose-blockquote:py-2 prose-blockquote:pr-4 prose-blockquote:rounded-r
+                    prose-ul:list-disc prose-ul:pl-6 prose-ul:space-y-2 prose-ul:text-gray-700
+                    prose-ol:list-decimal prose-ol:pl-6 prose-ol:space-y-2 prose-ol:text-gray-700
+                    prose-li:text-gray-700 prose-li:leading-relaxed
+                    prose-table:w-full prose-table:border-collapse prose-table:overflow-hidden prose-table:rounded-lg prose-table:shadow-sm
+                    prose-thead:bg-gradient-to-r prose-thead:from-gray-100 prose-thead:to-gray-50
+                    prose-th:text-left prose-th:font-semibold prose-th:text-gray-900 prose-th:px-4 prose-th:py-3 prose-th:border-b prose-th:border-gray-200
+                    prose-td:px-4 prose-td:py-3 prose-td:border-b prose-td:border-gray-100 prose-td:text-gray-700
+                    prose-tbody:bg-white
+                    prose-tr:hover:bg-gray-50 prose-tr:transition-colors
+                    prose-img:rounded-lg prose-img:shadow-md prose-img:mx-auto
+                    prose-hr:border-gray-200 prose-hr:my-8">
+                    <ReactMarkdown remarkPlugins={[remarkGfm]}>
+                      {selectedFile.content}
+                    </ReactMarkdown>
+                  </article>
+                </div>
+              </div>
+            </div>
+          </div>
         )}
       </main>
     </div>

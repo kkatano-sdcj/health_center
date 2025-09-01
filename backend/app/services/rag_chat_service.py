@@ -512,3 +512,33 @@ class RAGChatService:
         """Update reranker weights for experimentation"""
         self.reranker.weights.update(weights)
         logger.info(f"Updated reranker weights: {self.reranker.weights}")
+    
+    def get_all_conversations(self) -> Dict[str, List[Dict[str, Any]]]:
+        """Get all conversations from memory service"""
+        # Try to get from memory service first
+        try:
+            # Get list of all thread IDs from memory service
+            all_threads = {}
+            
+            # Check if we have conversations in local memory
+            for conv_id, messages in self.conversations.items():
+                all_threads[conv_id] = messages
+            
+            # Also try to load from persistent storage
+            try:
+                conversations_dir = self.memory_service.storage_path
+                if conversations_dir.exists():
+                    for file_path in conversations_dir.glob("*.json"):
+                        thread_id = file_path.stem
+                        if thread_id not in all_threads:
+                            thread_info = self.memory_service.get_thread_info(thread_id)
+                            if thread_info and 'messages' in thread_info:
+                                all_threads[thread_id] = thread_info['messages']
+            except Exception as e:
+                logger.debug(f"Could not load from persistent storage: {e}")
+            
+            return all_threads
+        except Exception as e:
+            logger.error(f"Error getting all conversations: {e}")
+            # Fallback to local conversations
+            return self.conversations.copy()

@@ -72,6 +72,7 @@ async def upload_and_convert(
         raise HTTPException(status_code=400, detail="ファイルサイズが100MBを超えています")
     
     # アップロードディレクトリにファイルを保存
+    os.makedirs("original", exist_ok=True)
     upload_path = os.path.join("original", file.filename)
     try:
         with open(upload_path, "wb") as buffer:

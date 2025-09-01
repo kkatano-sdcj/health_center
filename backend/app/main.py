@@ -10,7 +10,7 @@ from dotenv import load_dotenv
 # Load environment variables from .env file
 load_dotenv()
 
-from app.api import chat, documents, search, conversion, settings as api_settings
+from app.api import chat, documents, search, conversion, settings as api_settings, storage, uploaded
 from app.api.websocket import websocket_endpoint
 from app.core.config import settings
 from app.core.database import init_db
@@ -95,6 +95,12 @@ app.include_router(rag.router, tags=["rag"])
 # AI Chat APIルーターの登録
 from app.api import aichat
 app.include_router(aichat.router, prefix="/api/aichat", tags=["aichat"])
+
+# Storage APIルーターの登録
+app.include_router(storage.router, prefix="/api/storage", tags=["storage"])
+
+# Uploaded APIルーターの登録
+app.include_router(uploaded.router, prefix="/api/uploaded", tags=["uploaded"])
 
 # WebSocketエンドポイント
 @app.websocket("/ws")

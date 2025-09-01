@@ -1,7 +1,7 @@
 "use client";
 
 import React, { useState, useEffect } from "react";
-import { FileText, Code, Book, Clock, Save, HelpCircle, Database, Globe, MessageSquare, Plus, Trash2 } from "lucide-react";
+import { FileText, Code, Book, Save, HelpCircle, Database, Globe, MessageSquare, Plus, Trash2 } from "lucide-react";
 
 interface ThreadItem {
   id: string;
@@ -83,13 +83,36 @@ export const Sidebar: React.FC<SidebarProps> = ({
       const response = await fetch('http://localhost:8000/api/aichat/threads');
       if (response.ok) {
         const data = await response.json();
-        if (data.threads && data.threads.length > 0) {
-          setThreads(data.threads);
-        }
+        // Transform the data to match ThreadItem format
+        const transformedThreads: ThreadItem[] = data.map((thread: any) => ({
+          id: thread.id,
+          title: thread.title || 'New Thread',
+          timestamp: formatTimestamp(thread.lastMessage),
+          messageCount: thread.messageCount || 0
+        }));
+        setThreads(transformedThreads);
       }
     } catch (error) {
       console.error('Failed to fetch threads:', error);
+      // Keep using sample threads if API fails
     }
+  };
+  
+  const formatTimestamp = (timestamp: string): string => {
+    if (!timestamp) return '未知';
+    
+    const now = new Date();
+    const date = new Date(timestamp);
+    const diff = now.getTime() - date.getTime();
+    const minutes = Math.floor(diff / 60000);
+    const hours = Math.floor(diff / 3600000);
+    const days = Math.floor(diff / 86400000);
+    
+    if (minutes < 1) return 'たった今';
+    if (minutes < 60) return `${minutes}分前`;
+    if (hours < 24) return `${hours}時間前`;
+    if (days < 7) return `${days}日前`;
+    return date.toLocaleDateString('ja-JP');
   };
   
   const handleDeleteThread = async (threadId: string) => {

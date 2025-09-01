@@ -94,5 +94,53 @@
     },
     "relationship_type": "conversion",
     "created_at": "2025-08-27 17:01:31.093677"
+  },
+  {
+    "original_file": {
+      "original_filename": "test1.txt",
+      "original_path": "original/test1.txt",
+      "converted_filename": null,
+      "converted_path": null,
+      "file_size": 51,
+      "mime_type": "text/plain",
+      "extension": "txt",
+      "uploaded_at": "2025-09-01 04:06:01.605023",
+      "converted_at": null,
+      "conversion_id": "8b158437-9cf1-42d5-97db-72301c2679a8",
+      "conversion_status": "pending",
+      "conversion_method": null,
+      "original_checksum": "72638240108d4c51b017324688b488382bb69305e1acf9be685302e4b857f4d1",
+      "converted_checksum": null,
+      "tags": [],
+      "user_id": null,
+      "notes": null,
+      "is_vectorized": false,
+      "vectorization_date": null,
+      "vector_chunks": 0
+    },
+    "converted_file": {
+      "original_filename": "",
+      "original_path": "",
+      "converted_filename": "test1_20250901_040601.md",
+      "converted_path": "converted/test1_20250901_040601.md",
+      "file_size": 51,
+      "mime_type": "application/octet-stream",
+      "extension": "md",
+      "uploaded_at": "2025-09-01 04:06:01.625020",
+      "converted_at": "2025-09-01 04:06:01.630733",
+      "conversion_id": "8b158437-9cf1-42d5-97db-72301c2679a8",
+      "conversion_status": "completed",
+      "conversion_method": null,
+      "original_checksum": "",
+      "converted_checksum": "72638240108d4c51b017324688b488382bb69305e1acf9be685302e4b857f4d1",
+      "tags": [],
+      "user_id": null,
+      "notes": null,
+      "is_vectorized": false,
+      "vectorization_date": null,
+      "vector_chunks": 0
+    },
+    "relationship_type": "conversion",
+    "created_at": "2025-09-01 04:06:01.631622"
   }
 ]

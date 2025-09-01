@@ -152,6 +152,87 @@ async def clear_conversation(conversation_id: str):
         logger.error(f"Clear conversation error: {e}")
         raise HTTPException(status_code=500, detail=str(e))
 
+@router.get("/threads")
+async def get_threads():
+    """
+    Get all conversation threads
+    
+    Returns:
+        List of conversation threads with metadata
+    """
+    try:
+        rag_chat_service = get_rag_chat_service()
+        # Get all conversations from the service
+        conversations = rag_chat_service.get_all_conversations()
+        
+        # Transform to thread format for frontend
+        threads = []
+        for conv_id, messages in conversations.items():
+            if messages:
+                # Get first message as title
+                title = messages[0].get('user_message', 'New Thread')[:50]
+                # Get timestamp from last message
+                last_message_time = messages[-1].get('timestamp', datetime.now().isoformat())
+                
+                threads.append({
+                    'id': conv_id,
+                    'title': title,
+                    'lastMessage': last_message_time,
+                    'messageCount': len(messages)
+                })
+        
+        # Sort by last message time
+        threads.sort(key=lambda x: x['lastMessage'], reverse=True)
+        
+        return threads
+        
+    except Exception as e:
+        logger.error(f"Get threads error: {e}")
+        raise HTTPException(status_code=500, detail=str(e))
+
+@router.post("/threads")
+async def create_thread():
+    """
+    Create a new conversation thread
+    
+    Returns:
+        New thread information
+    """
+    try:
+        thread_id = str(uuid.uuid4())
+        
+        return {
+            'id': thread_id,
+            'title': 'New Thread',
+            'lastMessage': datetime.now().isoformat(),
+            'messageCount': 0
+        }
+        
+    except Exception as e:
+        logger.error(f"Create thread error: {e}")
+        raise HTTPException(status_code=500, detail=str(e))
+
+@router.delete("/threads/{thread_id}")
+async def delete_thread(thread_id: str):
+    """
+    Delete a conversation thread
+    
+    Args:
+        thread_id: Thread ID to delete
+        
+    Returns:
+        Success status
+    """
+    try:
+        rag_chat_service = get_rag_chat_service()
+        success = rag_chat_service.clear_conversation(thread_id)
+        
+        return {"success": success}
+        
+    except Exception as e:
+        logger.error(f"Delete thread error: {e}")
+        raise HTTPException(status_code=500, detail=str(e))
+
 @router.post("/reranker/weights")
 async def update_reranker_weights(request: RerankerWeightsRequest):
     """
