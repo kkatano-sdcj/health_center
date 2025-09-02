@@ -96,6 +96,8 @@ app.include_router(rag.router, tags=["rag"])
 from app.api import aichat
 app.include_router(aichat.router, prefix="/api/aichat", tags=["aichat"])
 
+# Conversation endpoints are now integrated in aichat router
+
 # Storage APIルーターの登録
 app.include_router(storage.router, prefix="/api/storage", tags=["storage"])
 

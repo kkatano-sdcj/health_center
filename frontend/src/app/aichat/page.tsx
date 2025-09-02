@@ -34,10 +34,13 @@ export default function AIChatPage() {
       const response = await fetch('http://localhost:8000/api/aichat/threads', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({})
       });
       if (response.ok) {
         const data = await response.json();
-        setCurrentThreadId(data.id);
+        setCurrentThreadId(data.thread_id || data.id);
+        // Refresh threads list
+        window.location.reload();
       }
     } catch (error) {
       console.error('Failed to create thread:', error);

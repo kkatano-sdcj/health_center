@@ -76,6 +76,9 @@ export const Sidebar: React.FC<SidebarProps> = ({
   // APIからスレッド一覧を取得
   useEffect(() => {
     fetchThreads();
+    // Refresh threads every 30 seconds
+    const interval = setInterval(fetchThreads, 30000);
+    return () => clearInterval(interval);
   }, []);
   
   const fetchThreads = async () => {
@@ -83,18 +86,23 @@ export const Sidebar: React.FC<SidebarProps> = ({
       const response = await fetch('http://localhost:8000/api/aichat/threads');
       if (response.ok) {
         const data = await response.json();
+        console.log('Fetched threads:', data);
         // Transform the data to match ThreadItem format
-        const transformedThreads: ThreadItem[] = data.map((thread: any) => ({
-          id: thread.id,
-          title: thread.title || 'New Thread',
-          timestamp: formatTimestamp(thread.lastMessage),
-          messageCount: thread.messageCount || 0
-        }));
-        setThreads(transformedThreads);
+        if (data && data.length > 0) {
+          const transformedThreads: ThreadItem[] = data.map((thread: any) => ({
+            id: thread.thread_id || thread.id,
+            title: thread.title || '新しい会話',
+            timestamp: formatTimestamp(thread.updated_at || thread.created_at),
+            messageCount: thread.message_count || 0
+          }));
+          setThreads(transformedThreads);
+        } else {
+          setThreads([]);
+        }
       }
     } catch (error) {
       console.error('Failed to fetch threads:', error);
-      // Keep using sample threads if API fails
+      setThreads([]);
     }
   };
   

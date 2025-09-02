@@ -64,14 +64,14 @@ export const ChatContainer: React.FC<ChatContainerProps> = ({
               minute: "2-digit"
             }) : '';
             
-            if (msg.role === 'human') {
+            if (msg.role === 'user' || msg.role === 'human') {
               loadedMessages.push({
                 id: `loaded-${index}`,
                 type: 'user',
                 content: msg.content,
                 timestamp: timestamp,
               });
-            } else if (msg.role === 'ai') {
+            } else if (msg.role === 'assistant' || msg.role === 'ai') {
               // Build message with metadata if available
               const aiMessage: Message = {
                 id: `loaded-${index}`,

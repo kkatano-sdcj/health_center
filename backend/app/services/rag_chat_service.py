@@ -356,6 +356,7 @@ class RAGChatService:
                             'sources': [],
                             'search_results': 0,
                             'search_type': 'web',
+                            'conversation_id': conversation_id,
                             'processing_time': (datetime.now() - start_time).total_seconds()
                         }
                     
@@ -371,6 +372,7 @@ class RAGChatService:
                             'sources': [],
                             'search_results': len(web_results),
                             'search_type': 'web',
+                            'conversation_id': conversation_id,
                             'processing_time': (datetime.now() - start_time).total_seconds()
                         }
                     
@@ -400,13 +402,9 @@ class RAGChatService:
                     if not self.memory_service.get_thread_info(conversation_id):
                         self.memory_service.create_thread(conversation_id, title=query[:50])
                     
-                    # Add messages to memory with metadata
+                    # Add messages to memory
                     self.memory_service.add_message(conversation_id, "human", query)
-                    self.memory_service.add_message(conversation_id, "ai", response, metadata={
-                        "sources": sources,
-                        "search_type": "web",
-                        "search_results": len(web_results)
-                    })
+                    self.memory_service.add_message(conversation_id, "ai", response)
                 
                 # Return web search response
                 return {
@@ -433,6 +431,7 @@ class RAGChatService:
                         'sources': [],
                         'search_results': 0,
                         'search_type': 'database',
+                        'conversation_id': conversation_id,
                         'processing_time': (datetime.now() - start_time).total_seconds()
                     }
                 
@@ -456,14 +455,9 @@ class RAGChatService:
                     if not self.memory_service.get_thread_info(conversation_id):
                         self.memory_service.create_thread(conversation_id, title=query[:50])
                     
-                    # Add messages to memory with metadata
+                    # Add messages to memory
                     self.memory_service.add_message(conversation_id, "human", query)
-                    self.memory_service.add_message(conversation_id, "ai", response, metadata={
-                        "sources": sources,
-                        "search_type": "database",
-                        "search_results": len(ranked_results),
-                        "used_reranking": use_reranking
-                    })
+                    self.memory_service.add_message(conversation_id, "ai", response)
                 
                 # 6. Return structured response
                 return {
@@ -485,6 +479,7 @@ class RAGChatService:
                     'sources': [],
                     'search_results': 0,
                     'search_type': 'none',
+                    'conversation_id': conversation_id,
                     'processing_time': (datetime.now() - start_time).total_seconds()
                 }
             
@@ -493,8 +488,11 @@ class RAGChatService:
             return {
                 'query': query,
                 'response': f'エラーが発生しました: {str(e)}',
+                'sources': [],  # 空のソースリスト
+                'search_results': 0,  # 検索結果なし
                 'error': str(e),
-                'processing_time': (datetime.now() - start_time).total_seconds()
+                'processing_time': (datetime.now() - start_time).total_seconds(),
+                'conversation_id': conversation_id
             }
     
     def get_conversation_history(self, conversation_id: str) -> List[Dict[str, Any]]:

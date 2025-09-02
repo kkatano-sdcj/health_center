@@ -1,20 +1,24 @@
 """
 AI Chat API Endpoints with RAG and Thread Management
 """
-from fastapi import APIRouter, HTTPException, Body
+from fastapi import APIRouter, HTTPException, Body, Depends
 from typing import Dict, Any, Optional, List
 from pydantic import BaseModel
-from datetime import datetime
+from datetime import datetime, timezone
+from sqlalchemy.orm import Session
 import logging
 import uuid
 
 from app.services.rag_chat_service import RAGChatService
+from app.services.conversation_service import ConversationService
+from app.database import get_db
 
 logger = logging.getLogger(__name__)
 router = APIRouter()
 
-# Initialize service as singleton
+# Initialize services as singleton
 _rag_chat_service = None
+_conversation_service = None
 
 def get_rag_chat_service():
     global _rag_chat_service
@@ -22,6 +26,13 @@ def get_rag_chat_service():
         logger.info("Initializing RAG chat service (singleton)")
         _rag_chat_service = RAGChatService()
     return _rag_chat_service
+
+def get_conversation_service():
+    global _conversation_service
+    if _conversation_service is None:
+        logger.info("Initializing conversation service (singleton)")
+        _conversation_service = ConversationService()
+    return _conversation_service
 
 class ChatRequest(BaseModel):
     """Chat request model"""
@@ -50,7 +61,7 @@ class RerankerWeightsRequest(BaseModel):
     weights: Dict[str, float]
 
 @router.post("/chat", response_model=ChatResponse)
-async def chat(request: ChatRequest):
+async def chat(request: ChatRequest, db: Session = Depends(get_db)):
     """
     RAG-enhanced chat endpoint
     
@@ -61,11 +72,20 @@ async def chat(request: ChatRequest):
         AI-generated response with sources
     """
     try:
-        # Get service instance
+        # Get service instances
         rag_chat_service = get_rag_chat_service()
+        conversation_service = get_conversation_service()
         
         # Generate conversation ID if not provided
         conversation_id = request.conversation_id or str(uuid.uuid4())
+        
+        # Save user message to database
+        user_message = {
+            "role": "user",
+            "content": request.message,
+            "timestamp": datetime.now(timezone.utc).isoformat()
+        }
+        conversation_service.add_message(db, conversation_id, user_message)
         
         # Process chat
         result = await rag_chat_service.chat(
@@ -76,6 +96,21 @@ async def chat(request: ChatRequest):
             use_database=request.use_database,
             use_web_search=request.use_web_search
         )
+        
+        # Save assistant response to database with metadata
+        assistant_message = {
+            "role": "assistant",
+            "content": result.get("response", ""),
+            "timestamp": datetime.now(timezone.utc).isoformat(),
+            "metadata": {
+                "sources": result.get("sources", []),
+                "search_results": result.get("search_results", 0),
+                "processing_time": result.get("processing_time", 0),
+                "used_reranking": result.get("used_reranking", False),
+                "search_type": result.get("search_type", "database")
+            }
+        }
+        conversation_service.add_message(db, conversation_id, assistant_message)
         
         # Add conversation ID to result
         result['conversation_id'] = conversation_id
@@ -153,37 +188,17 @@ async def clear_conversation(conversation_id: str):
         raise HTTPException(status_code=500, detail=str(e))
 
 @router.get("/threads")
-async def get_threads():
+async def get_threads(db: Session = Depends(get_db)):
     """
-    Get all conversation threads
+    Get all conversation threads from PostgreSQL
     
     Returns:
         List of conversation threads with metadata
     """
     try:
-        rag_chat_service = get_rag_chat_service()
-        # Get all conversations from the service
-        conversations = rag_chat_service.get_all_conversations()
-        
-        # Transform to thread format for frontend
-        threads = []
-        for conv_id, messages in conversations.items():
-            if messages:
-                # Get first message as title
-                title = messages[0].get('user_message', 'New Thread')[:50]
-                # Get timestamp from last message
-                last_message_time = messages[-1].get('timestamp', datetime.now().isoformat())
-                
-                threads.append({
-                    'id': conv_id,
-                    'title': title,
-                    'lastMessage': last_message_time,
-                    'messageCount': len(messages)
-                })
-        
-        # Sort by last message time
-        threads.sort(key=lambda x: x['lastMessage'], reverse=True)
-        
+        conversation_service = get_conversation_service()
+        threads = conversation_service.list_threads(db)
+        logger.info(f"API returning {len(threads)} threads")
         return threads
         
     except Exception as e:
@@ -191,31 +206,26 @@ async def get_threads():
         raise HTTPException(status_code=500, detail=str(e))
 
 @router.post("/threads")
-async def create_thread():
+async def create_thread(title: Optional[str] = None, db: Session = Depends(get_db)):
     """
-    Create a new conversation thread
+    Create a new conversation thread in PostgreSQL
     
     Returns:
         New thread information
     """
     try:
-        thread_id = str(uuid.uuid4())
-        
-        return {
-            'id': thread_id,
-            'title': 'New Thread',
-            'lastMessage': datetime.now().isoformat(),
-            'messageCount': 0
-        }
+        conversation_service = get_conversation_service()
+        thread = conversation_service.create_thread(db, title)
+        return thread
         
     except Exception as e:
         logger.error(f"Create thread error: {e}")
         raise HTTPException(status_code=500, detail=str(e))
 
 @router.delete("/threads/{thread_id}")
-async def delete_thread(thread_id: str):
+async def delete_thread(thread_id: str, db: Session = Depends(get_db)):
     """
-    Delete a conversation thread
+    Delete a conversation thread from PostgreSQL
     
     Args:
         thread_id: Thread ID to delete
@@ -224,11 +234,16 @@ async def delete_thread(thread_id: str):
         Success status
     """
     try:
-        rag_chat_service = get_rag_chat_service()
-        success = rag_chat_service.clear_conversation(thread_id)
+        conversation_service = get_conversation_service()
+        success = conversation_service.delete_thread(db, thread_id)
         
-        return {"success": success}
+        if not success:
+            raise HTTPException(status_code=404, detail="Thread not found")
+            
+        return {"success": success, "message": "Thread deleted successfully"}
         
+    except HTTPException:
+        raise
     except Exception as e:
         logger.error(f"Delete thread error: {e}")
         raise HTTPException(status_code=500, detail=str(e))
@@ -330,76 +345,10 @@ async def get_stats():
         logger.error(f"Get stats error: {e}")
         raise HTTPException(status_code=500, detail=str(e))
 
-# Thread Management Endpoints
-
-@router.get("/threads")
-async def list_threads():
-    """
-    List all conversation threads
-    
-    Returns:
-        List of threads with metadata
-    """
-    try:
-        rag_chat_service = get_rag_chat_service()
-        threads = rag_chat_service.memory_service.list_threads()
-        
-        # Format timestamps for frontend
-        for thread in threads:
-            # Convert ISO timestamp to relative time
-            try:
-                created = datetime.fromisoformat(thread["created_at"])
-                updated = datetime.fromisoformat(thread["updated_at"])
-                now = datetime.now()
-                
-                # Calculate time difference
-                diff = now - updated
-                if diff.days > 0:
-                    thread["timestamp"] = f"{diff.days}日前"
-                elif diff.seconds > 3600:
-                    thread["timestamp"] = f"{diff.seconds // 3600}時間前"
-                elif diff.seconds > 60:
-                    thread["timestamp"] = f"{diff.seconds // 60}分前"
-                else:
-                    thread["timestamp"] = "たった今"
-                    
-                # Rename for frontend compatibility
-                thread["messageCount"] = thread.pop("message_count")
-                
-            except Exception as e:
-                thread["timestamp"] = "不明"
-                thread["messageCount"] = 0
-        
-        return {"threads": threads}
-        
-    except Exception as e:
-        logger.error(f"List threads error: {e}")
-        raise HTTPException(status_code=500, detail=str(e))
-
-@router.post("/threads")
-async def create_thread(title: Optional[str] = None):
-    """
-    Create a new conversation thread
-    
-    Args:
-        title: Optional thread title
-        
-    Returns:
-        Created thread metadata
-    """
-    try:
-        rag_chat_service = get_rag_chat_service()
-        thread_id = str(uuid.uuid4())
-        thread = rag_chat_service.memory_service.create_thread(thread_id, title)
-        
-        return thread
-        
-    except Exception as e:
-        logger.error(f"Create thread error: {e}")
-        raise HTTPException(status_code=500, detail=str(e))
+# Thread Management Endpoints (removed duplicates - using PostgreSQL-backed endpoints above)
 
 @router.get("/threads/{thread_id}")
-async def get_thread(thread_id: str):
+async def get_thread(thread_id: str, db: Session = Depends(get_db)):
     """
     Get thread information and messages
     
@@ -410,25 +359,13 @@ async def get_thread(thread_id: str):
         Thread metadata and messages
     """
     try:
-        rag_chat_service = get_rag_chat_service()
-        thread_info = rag_chat_service.memory_service.get_thread_info(thread_id)
+        conversation_service = get_conversation_service()
+        thread = conversation_service.get_thread(db, thread_id)
         
-        if not thread_info:
+        if not thread:
             raise HTTPException(status_code=404, detail="Thread not found")
         
-        # Get full messages with metadata
-        messages = []
-        if hasattr(rag_chat_service.memory_service, 'get_messages'):
-            messages = rag_chat_service.memory_service.get_messages(thread_id)
-        
-        # Also get context for backward compatibility
-        context = rag_chat_service.memory_service.get_context(thread_id)
-        
-        return {
-            "thread": thread_info,
-            "context": context,
-            "messages": messages
-        }
+        return thread
         
     except HTTPException:
         raise
@@ -437,7 +374,7 @@ async def get_thread(thread_id: str):
         raise HTTPException(status_code=500, detail=str(e))
 
 @router.post("/threads/{thread_id}/summarize")
-async def summarize_thread(thread_id: str):
+async def summarize_thread(thread_id: str, db: Session = Depends(get_db)):
     """
     Summarize a conversation thread using LLM
     
@@ -449,14 +386,16 @@ async def summarize_thread(thread_id: str):
     """
     try:
         rag_chat_service = get_rag_chat_service()
+        conversation_service = get_conversation_service()
         
-        # Get thread info and messages
-        thread_info = rag_chat_service.memory_service.get_thread_info(thread_id)
+        # Get thread info and messages from PostgreSQL
+        thread_info = conversation_service.get_thread(db, thread_id)
         if not thread_info:
             raise HTTPException(status_code=404, detail="Thread not found")
         
-        # Get full conversation context
-        context = rag_chat_service.memory_service.get_context(thread_id, max_messages=50)
+        # Build context from messages
+        messages = thread_info.get('messages', [])
+        context = "\n".join([f"{msg['role']}: {msg['content']}" for msg in messages])
         
         if not context:
             return {
@@ -511,34 +450,10 @@ async def summarize_thread(thread_id: str):
         logger.error(f"Summarize thread error: {e}")
         raise HTTPException(status_code=500, detail=str(e))
 
-@router.delete("/threads/{thread_id}")
-async def delete_thread(thread_id: str):
-    """
-    Delete a conversation thread
-    
-    Args:
-        thread_id: Thread identifier
-        
-    Returns:
-        Success status
-    """
-    try:
-        rag_chat_service = get_rag_chat_service()
-        success = rag_chat_service.memory_service.delete_thread(thread_id)
-        
-        if not success:
-            raise HTTPException(status_code=404, detail="Thread not found")
-        
-        return {"success": True, "message": f"Thread {thread_id} deleted"}
-        
-    except HTTPException:
-        raise
-    except Exception as e:
-        logger.error(f"Delete thread error: {e}")
-        raise HTTPException(status_code=500, detail=str(e))
+# Delete thread endpoint already defined above using PostgreSQL
 
 @router.delete("/threads")
-async def clear_all_threads():
+async def clear_all_threads(db: Session = Depends(get_db)):
     """
     Clear all conversation threads
     
@@ -546,10 +461,10 @@ async def clear_all_threads():
         Number of threads deleted
     """
     try:
-        rag_chat_service = get_rag_chat_service()
-        count = rag_chat_service.memory_service.clear_all_threads()
+        conversation_service = get_conversation_service()
+        success = conversation_service.clear_all_threads(db)
         
-        return {"success": True, "deleted_count": count}
+        return {"success": success, "message": "All threads cleared"}
         
     except Exception as e:
         logger.error(f"Clear threads error: {e}")
