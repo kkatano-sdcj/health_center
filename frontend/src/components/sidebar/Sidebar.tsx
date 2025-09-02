@@ -145,8 +145,8 @@ export const Sidebar: React.FC<SidebarProps> = ({
 
     setIsSaving(true);
     try {
-      // 1. Get conversation summary from API
-      const summaryResponse = await fetch(`http://localhost:8000/api/aichat/threads/${currentThreadId}/summarize`, {
+      // Get conversation summary and save as note via API
+      const summaryResponse = await fetch(`http://localhost:8000/api/aichat/threads/${currentThreadId}/summarize?save_as_note=true`, {
         method: 'POST'
       });
       
@@ -156,24 +156,11 @@ export const Sidebar: React.FC<SidebarProps> = ({
       
       const summaryData = await summaryResponse.json();
       
-      // 2. Create note object
-      const note = {
-        id: Date.now().toString(),
-        title: `[会話要約] ${summaryData.title}`,
-        content: summaryData.summary,
-        tags: ['AI会話', '要約', new Date().toLocaleDateString('ja-JP')],
-        createdAt: new Date().toISOString(),
-        updatedAt: new Date().toISOString(),
-      };
-      
-      // 3. Save to localStorage (same as Note page)
-      const existingNotes = localStorage.getItem('notes');
-      const notes = existingNotes ? JSON.parse(existingNotes) : [];
-      notes.unshift(note);
-      localStorage.setItem('notes', JSON.stringify(notes));
-      
-      // 4. Show success message
-      alert('会話をノートに保存しました！');
+      if (summaryData.note_saved) {
+        alert('会話をノートに保存しました！');
+      } else {
+        alert('会話の要約は作成されましたが、ノートの保存に失敗しました。');
+      }
       
     } catch (error) {
       console.error('Failed to save conversation to note:', error);

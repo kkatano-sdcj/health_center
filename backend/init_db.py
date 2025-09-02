@@ -4,6 +4,7 @@ sys.path.append(os.path.dirname(os.path.abspath(__file__)))
 
 from app.database import Base, engine
 from app.models.conversation import Conversation
+from app.models.note import Note
 import logging
 
 logging.basicConfig(level=logging.INFO)

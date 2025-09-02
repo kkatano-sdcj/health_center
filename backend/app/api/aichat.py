@@ -11,6 +11,8 @@ import uuid
 
 from app.services.rag_chat_service import RAGChatService
 from app.services.conversation_service import ConversationService
+from app.services.note_service import NoteService
+from app.models.note import NoteType
 from app.database import get_db
 
 logger = logging.getLogger(__name__)
@@ -19,6 +21,7 @@ router = APIRouter()
 # Initialize services as singleton
 _rag_chat_service = None
 _conversation_service = None
+_note_service = None
 
 def get_rag_chat_service():
     global _rag_chat_service
@@ -33,6 +36,13 @@ def get_conversation_service():
         logger.info("Initializing conversation service (singleton)")
         _conversation_service = ConversationService()
     return _conversation_service
+
+def get_note_service():
+    global _note_service
+    if _note_service is None:
+        logger.info("Initializing note service (singleton)")
+        _note_service = NoteService()
+    return _note_service
 
 class ChatRequest(BaseModel):
     """Chat request model"""
@@ -374,19 +384,21 @@ async def get_thread(thread_id: str, db: Session = Depends(get_db)):
         raise HTTPException(status_code=500, detail=str(e))
 
 @router.post("/threads/{thread_id}/summarize")
-async def summarize_thread(thread_id: str, db: Session = Depends(get_db)):
+async def summarize_thread(thread_id: str, save_as_note: bool = False, db: Session = Depends(get_db)):
     """
-    Summarize a conversation thread using LLM
+    Summarize a conversation thread using LLM and optionally save as note
     
     Args:
         thread_id: Thread identifier
+        save_as_note: Whether to save the summary as a note
         
     Returns:
-        Summarized conversation
+        Summarized conversation and note info if saved
     """
     try:
         rag_chat_service = get_rag_chat_service()
         conversation_service = get_conversation_service()
+        note_service = get_note_service()
         
         # Get thread info and messages from PostgreSQL
         thread_info = conversation_service.get_thread(db, thread_id)
@@ -414,10 +426,17 @@ async def summarize_thread(thread_id: str, db: Session = Depends(get_db)):
 {context}
 
 要約形式:
-1. 会話の概要
-2. 主な質問と回答
-3. 重要なポイント
-4. 結論または次のアクション（もしあれば）"""
+## 会話の概要
+[会話全体の概要を2-3文で説明]
+
+## 主な質問と回答
+[重要な質問と回答のペアを箇条書きで]
+
+## 重要なポイント
+[会話から得られた重要な情報や洞察を箇条書きで]
+
+## 結論または次のアクション
+[会話の結論や、次に取るべきアクションがあれば記載]"""
             
             messages = [
                 SystemMessage(content="あなたは会話を要約する専門家です。明確で簡潔な要約を作成してください。"),
@@ -435,7 +454,7 @@ async def summarize_thread(thread_id: str, db: Session = Depends(get_db)):
             # Simple fallback if no LLM available
             summary = f"会話タイトル: {thread_info.get('title', '無題')}\n\n{context[:500]}..."
         
-        return {
+        result = {
             "summary": summary,
             "title": thread_info.get("title", "無題の会話"),
             "thread_id": thread_id,
@@ -443,6 +462,27 @@ async def summarize_thread(thread_id: str, db: Session = Depends(get_db)):
             "created_at": thread_info.get("created_at"),
             "updated_at": thread_info.get("updated_at")
         }
+        
+        # Save as note if requested
+        if save_as_note:
+            note_title = f"[会話要約] {thread_info.get('title', '無題の会話')}"
+            tags = ["AI会話", "要約", datetime.now().strftime("%Y年%m月%d日")]
+            
+            note = note_service.create_note(
+                db=db,
+                title=note_title,
+                content=summary,
+                note_type=NoteType.CONVERSATION_SUMMARY,
+                summary=summary[:200] + "..." if len(summary) > 200 else summary,
+                tags=tags,
+                category="会話要約",
+                source_thread_id=thread_id
+            )
+            
+            result["note"] = note
+            result["note_saved"] = True
+        
+        return result
         
     except HTTPException:
         raise

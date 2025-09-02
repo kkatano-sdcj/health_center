@@ -2,16 +2,40 @@
 
 import React, { useState, useEffect } from "react";
 import { Navigation } from "@/components/layout/Navigation";
-import { Plus, Search, Calendar, Tag, Trash2, Edit3, Save, X } from "lucide-react";
+import { Plus, Search, Calendar, Tag, Trash2, Edit3, Save, X, Pin, Star, FileText, MessageSquare, HelpCircle } from "lucide-react";
 
 interface Note {
   id: string;
+  note_id: string;
+  note_type: string;
   title: string;
   content: string;
+  summary?: string;
   tags: string[];
-  createdAt: string;
-  updatedAt: string;
+  category?: string;
+  source_thread_id?: string;
+  status: string;
+  is_pinned: boolean;
+  is_favorite: boolean;
+  view_count: number;
+  last_viewed_at?: string;
+  created_at: string;
+  updated_at: string;
 }
+
+const NOTE_TYPE_ICONS: Record<string, React.ReactNode> = {
+  conversation_summary: <MessageSquare className="w-4 h-4" />,
+  user_note: <FileText className="w-4 h-4" />,
+  document: <FileText className="w-4 h-4" />,
+  faq: <HelpCircle className="w-4 h-4" />
+};
+
+const NOTE_TYPE_LABELS: Record<string, string> = {
+  conversation_summary: "会話要約",
+  user_note: "ノート",
+  document: "ドキュメント",
+  faq: "FAQ"
+};
 
 export default function NotePage() {
   const [notes, setNotes] = useState<Note[]>([]);
@@ -20,53 +44,130 @@ export default function NotePage() {
   const [editingNote, setEditingNote] = useState<Note | null>(null);
   const [searchQuery, setSearchQuery] = useState("");
   const [selectedTags, setSelectedTags] = useState<string[]>([]);
+  const [selectedType, setSelectedType] = useState<string>("");
+  const [isLoading, setIsLoading] = useState(false);
 
-  // Load notes from localStorage on mount
-  useEffect(() => {
-    const savedNotes = localStorage.getItem("notes");
-    if (savedNotes) {
-      setNotes(JSON.parse(savedNotes));
+  // Load notes from API
+  const loadNotes = async () => {
+    setIsLoading(true);
+    try {
+      const params = new URLSearchParams();
+      if (selectedType) params.append("note_type", selectedType);
+      if (selectedTags.length > 0) params.append("tags", selectedTags.join(","));
+      if (searchQuery) params.append("search", searchQuery);
+      
+      const response = await fetch(`http://localhost:8000/api/notes/notes?${params}`);
+      if (response.ok) {
+        const data = await response.json();
+        setNotes(data);
+      }
+    } catch (error) {
+      console.error("Failed to load notes:", error);
+    } finally {
+      setIsLoading(false);
     }
-  }, []);
-
-  // Save notes to localStorage whenever they change
-  useEffect(() => {
-    localStorage.setItem("notes", JSON.stringify(notes));
-  }, [notes]);
-
-  const createNewNote = () => {
-    const newNote: Note = {
-      id: Date.now().toString(),
-      title: "新しいノート",
-      content: "",
-      tags: [],
-      createdAt: new Date().toISOString(),
-      updatedAt: new Date().toISOString(),
-    };
-    setNotes([newNote, ...notes]);
-    setSelectedNote(newNote);
-    setEditingNote(newNote);
-    setIsEditing(true);
   };
 
-  const saveNote = () => {
+  // Load notes on mount and when filters change
+  useEffect(() => {
+    loadNotes();
+  }, [selectedType, selectedTags, searchQuery]);
+
+  const createNewNote = async () => {
+    try {
+      const response = await fetch("http://localhost:8000/api/notes/notes", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          title: "新しいノート",
+          content: "",
+          note_type: "user_note",
+          tags: [],
+        }),
+      });
+      
+      if (response.ok) {
+        const newNote = await response.json();
+        setNotes([newNote, ...notes]);
+        setSelectedNote(newNote);
+        setEditingNote(newNote);
+        setIsEditing(true);
+      }
+    } catch (error) {
+      console.error("Failed to create note:", error);
+    }
+  };
+
+  const saveNote = async () => {
     if (!editingNote) return;
     
-    const updatedNotes = notes.map(note => 
-      note.id === editingNote.id 
-        ? { ...editingNote, updatedAt: new Date().toISOString() }
-        : note
-    );
-    setNotes(updatedNotes);
-    setSelectedNote(editingNote);
-    setIsEditing(false);
-    setEditingNote(null);
+    try {
+      const response = await fetch(`http://localhost:8000/api/notes/notes/${editingNote.note_id}`, {
+        method: "PUT",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          title: editingNote.title,
+          content: editingNote.content,
+          tags: editingNote.tags,
+        }),
+      });
+      
+      if (response.ok) {
+        const updatedNote = await response.json();
+        setNotes(notes.map(note => 
+          note.note_id === updatedNote.note_id ? updatedNote : note
+        ));
+        setSelectedNote(updatedNote);
+        setIsEditing(false);
+        setEditingNote(null);
+      }
+    } catch (error) {
+      console.error("Failed to save note:", error);
+    }
   };
 
-  const deleteNote = (noteId: string) => {
-    setNotes(notes.filter(note => note.id !== noteId));
-    if (selectedNote?.id === noteId) {
-      setSelectedNote(null);
+  const deleteNote = async (noteId: string) => {
+    try {
+      const response = await fetch(`http://localhost:8000/api/notes/notes/${noteId}`, {
+        method: "DELETE",
+      });
+      
+      if (response.ok) {
+        setNotes(notes.filter(note => note.note_id !== noteId));
+        if (selectedNote?.note_id === noteId) {
+          setSelectedNote(null);
+        }
+      }
+    } catch (error) {
+      console.error("Failed to delete note:", error);
+    }
+  };
+
+  const togglePin = async (noteId: string) => {
+    try {
+      const response = await fetch(`http://localhost:8000/api/notes/notes/${noteId}/pin`, {
+        method: "POST",
+      });
+      
+      if (response.ok) {
+        await loadNotes();
+      }
+    } catch (error) {
+      console.error("Failed to toggle pin:", error);
+    }
+  };
+
+  const toggleFavorite = async (noteId: string) => {
+    try {
+      const response = await fetch(`http://localhost:8000/api/notes/notes/${noteId}/favorite`, {
+        method: "POST",
+      });
+      
+      if (response.ok) {
+        await loadNotes();
+      }
+    } catch (error) {
+      console.error("Failed to toggle favorite:", error);
     }
   };
 
@@ -80,17 +181,11 @@ export default function NotePage() {
     setIsEditing(true);
   };
 
-  // Filter notes based on search and tags
-  const filteredNotes = notes.filter(note => {
-    const matchesSearch = note.title.toLowerCase().includes(searchQuery.toLowerCase()) ||
-                          note.content.toLowerCase().includes(searchQuery.toLowerCase());
-    const matchesTags = selectedTags.length === 0 || 
-                        selectedTags.some(tag => note.tags.includes(tag));
-    return matchesSearch && matchesTags;
-  });
-
   // Get all unique tags
   const allTags = Array.from(new Set(notes.flatMap(note => note.tags)));
+
+  // Note type filter options
+  const noteTypes = ["conversation_summary", "user_note", "document", "faq"];
 
   return (
     <div className="h-screen flex flex-col">
@@ -122,11 +217,41 @@ export default function NotePage() {
             </div>
           </div>
 
+          {/* Type Filter */}
+          <div className="p-4 border-b border-gray-200">
+            <div className="flex flex-wrap gap-2">
+              <button
+                onClick={() => setSelectedType("")}
+                className={`px-3 py-1 text-xs rounded-full transition-colors ${
+                  selectedType === ""
+                    ? "bg-blue-600 text-white"
+                    : "bg-gray-100 text-gray-700 hover:bg-gray-200"
+                }`}
+              >
+                すべて
+              </button>
+              {noteTypes.map(type => (
+                <button
+                  key={type}
+                  onClick={() => setSelectedType(type)}
+                  className={`px-3 py-1 text-xs rounded-full transition-colors flex items-center gap-1 ${
+                    selectedType === type
+                      ? "bg-blue-600 text-white"
+                      : "bg-gray-100 text-gray-700 hover:bg-gray-200"
+                  }`}
+                >
+                  {NOTE_TYPE_ICONS[type]}
+                  {NOTE_TYPE_LABELS[type]}
+                </button>
+              ))}
+            </div>
+          </div>
+
           {/* Tags Filter */}
           {allTags.length > 0 && (
             <div className="p-4 border-b border-gray-200">
               <div className="flex flex-wrap gap-2">
-                {allTags.map(tag => (
+                {allTags.slice(0, 5).map(tag => (
                   <button
                     key={tag}
                     onClick={() => {
@@ -150,36 +275,52 @@ export default function NotePage() {
           )}
 
           {/* Note List */}
-          <div className="overflow-y-auto" style={{ height: "calc(100% - 200px)" }}>
-            {filteredNotes.map(note => (
-              <div
-                key={note.id}
-                onClick={() => setSelectedNote(note)}
-                className={`p-4 border-b border-gray-100 cursor-pointer hover:bg-gray-50 transition-colors ${
-                  selectedNote?.id === note.id ? "bg-blue-50" : ""
-                }`}
-              >
-                <h3 className="font-medium text-gray-900 mb-1 truncate">{note.title}</h3>
-                <p className="text-sm text-gray-500 mb-2 line-clamp-2">{note.content}</p>
-                <div className="flex items-center justify-between">
-                  <div className="flex gap-1">
-                    {note.tags.slice(0, 2).map(tag => (
-                      <span key={tag} className="px-2 py-1 text-xs bg-gray-100 text-gray-600 rounded">
-                        #{tag}
-                      </span>
-                    ))}
-                    {note.tags.length > 2 && (
-                      <span className="px-2 py-1 text-xs text-gray-400">
-                        +{note.tags.length - 2}
-                      </span>
-                    )}
+          <div className="overflow-y-auto" style={{ height: "calc(100% - 300px)" }}>
+            {isLoading ? (
+              <div className="p-4 text-center text-gray-500">読み込み中...</div>
+            ) : (
+              notes.map(note => (
+                <div
+                  key={note.note_id}
+                  onClick={() => setSelectedNote(note)}
+                  className={`p-4 border-b border-gray-100 cursor-pointer hover:bg-gray-50 transition-colors relative ${
+                    selectedNote?.note_id === note.note_id ? "bg-blue-50" : ""
+                  }`}
+                >
+                  <div className="flex items-start justify-between mb-1">
+                    <div className="flex items-center gap-2">
+                      {note.is_pinned && <Pin className="w-3 h-3 text-blue-600" />}
+                      {note.is_favorite && <Star className="w-3 h-3 text-yellow-500 fill-current" />}
+                      {NOTE_TYPE_ICONS[note.note_type]}
+                    </div>
+                    <span className="text-xs text-gray-400">
+                      {NOTE_TYPE_LABELS[note.note_type] || note.note_type}
+                    </span>
                   </div>
-                  <span className="text-xs text-gray-400">
-                    {new Date(note.updatedAt).toLocaleDateString("ja-JP")}
-                  </span>
+                  <h3 className="font-medium text-gray-900 mb-1 truncate">{note.title}</h3>
+                  <p className="text-sm text-gray-500 mb-2 line-clamp-2">
+                    {note.summary || note.content}
+                  </p>
+                  <div className="flex items-center justify-between">
+                    <div className="flex gap-1">
+                      {note.tags.slice(0, 2).map(tag => (
+                        <span key={tag} className="px-2 py-1 text-xs bg-gray-100 text-gray-600 rounded">
+                          #{tag}
+                        </span>
+                      ))}
+                      {note.tags.length > 2 && (
+                        <span className="px-2 py-1 text-xs text-gray-400">
+                          +{note.tags.length - 2}
+                        </span>
+                      )}
+                    </div>
+                    <span className="text-xs text-gray-400">
+                      {new Date(note.updated_at).toLocaleDateString("ja-JP")}
+                    </span>
+                  </div>
                 </div>
-              </div>
-            ))}
+              ))
+            )}
           </div>
         </div>
 
@@ -201,6 +342,30 @@ export default function NotePage() {
                     <h1 className="text-2xl font-bold text-gray-900">{selectedNote.title}</h1>
                   )}
                   <div className="flex items-center gap-2">
+                    {!isEditing && (
+                      <>
+                        <button
+                          onClick={() => togglePin(selectedNote.note_id)}
+                          className={`p-2 rounded-lg transition-colors ${
+                            selectedNote.is_pinned
+                              ? "bg-blue-100 text-blue-600"
+                              : "bg-gray-200 text-gray-700 hover:bg-gray-300"
+                          }`}
+                        >
+                          <Pin className="w-5 h-5" />
+                        </button>
+                        <button
+                          onClick={() => toggleFavorite(selectedNote.note_id)}
+                          className={`p-2 rounded-lg transition-colors ${
+                            selectedNote.is_favorite
+                              ? "bg-yellow-100 text-yellow-600"
+                              : "bg-gray-200 text-gray-700 hover:bg-gray-300"
+                          }`}
+                        >
+                          <Star className="w-5 h-5" />
+                        </button>
+                      </>
+                    )}
                     {isEditing ? (
                       <>
                         <button
@@ -218,14 +383,16 @@ export default function NotePage() {
                       </>
                     ) : (
                       <>
+                        {selectedNote.note_type === "user_note" && (
+                          <button
+                            onClick={() => startEdit(selectedNote)}
+                            className="p-2 bg-gray-200 text-gray-700 rounded-lg hover:bg-gray-300 transition-colors"
+                          >
+                            <Edit3 className="w-5 h-5" />
+                          </button>
+                        )}
                         <button
-                          onClick={() => startEdit(selectedNote)}
-                          className="p-2 bg-gray-200 text-gray-700 rounded-lg hover:bg-gray-300 transition-colors"
-                        >
-                          <Edit3 className="w-5 h-5" />
-                        </button>
-                        <button
-                          onClick={() => deleteNote(selectedNote.id)}
+                          onClick={() => deleteNote(selectedNote.note_id)}
                           className="p-2 bg-red-100 text-red-600 rounded-lg hover:bg-red-200 transition-colors"
                         >
                           <Trash2 className="w-5 h-5" />
@@ -236,11 +403,18 @@ export default function NotePage() {
                 </div>
                 <div className="flex items-center gap-4 mt-3 text-sm text-gray-500">
                   <span className="flex items-center gap-1">
+                    {NOTE_TYPE_ICONS[selectedNote.note_type]}
+                    {NOTE_TYPE_LABELS[selectedNote.note_type] || selectedNote.note_type}
+                  </span>
+                  <span className="flex items-center gap-1">
                     <Calendar className="w-4 h-4" />
-                    作成: {new Date(selectedNote.createdAt).toLocaleString("ja-JP")}
+                    作成: {new Date(selectedNote.created_at).toLocaleString("ja-JP")}
                   </span>
                   <span>
-                    更新: {new Date(selectedNote.updatedAt).toLocaleString("ja-JP")}
+                    更新: {new Date(selectedNote.updated_at).toLocaleString("ja-JP")}
+                  </span>
+                  <span>
+                    閲覧: {selectedNote.view_count}回
                   </span>
                 </div>
               </div>
@@ -287,8 +461,17 @@ export default function NotePage() {
                     placeholder="ノートの内容を入力..."
                   />
                 ) : (
-                  <div className="text-gray-700 leading-relaxed whitespace-pre-wrap">
-                    {selectedNote.content || "内容がありません"}
+                  <div className="prose max-w-none">
+                    <div className="text-gray-700 leading-relaxed whitespace-pre-wrap">
+                      {selectedNote.content || "内容がありません"}
+                    </div>
+                    {selectedNote.source_thread_id && (
+                      <div className="mt-6 p-4 bg-blue-50 rounded-lg">
+                        <p className="text-sm text-blue-700">
+                          このノートはAI会話から生成されました
+                        </p>
+                      </div>
+                    )}
                   </div>
                 )}
               </div>
