@@ -9,10 +9,8 @@ import {
   Bot, 
   HelpCircle,
   CheckCircle,
-  AlertCircle,
   ChevronRight,
   BookOpen,
-  Search,
   MessageSquare,
   Lightbulb,
   RefreshCw
@@ -20,13 +18,24 @@ import {
 
 interface QAMessage {
   id: string;
-  type: "question" | "answer" | "system";
+  type: "question" | "answer" | "system" | "suggestions";
   content: string;
   timestamp: string;
   status?: "thinking" | "complete" | "error";
   relatedQuestions?: string[];
   confidence?: number;
   sources?: string[];
+  suggestedQuestions?: SuggestedQuestion[];
+}
+
+interface SuggestedQuestion {
+  faq_id: string;
+  record_number: string;
+  question_title: string;
+  question_content: string;
+  answer_content: string;
+  category_name: string;
+  similarity_score: number;
 }
 
 interface QuickQuestion {
@@ -103,8 +112,49 @@ export default function QAChatPage() {
     setInputValue("");
     setIsLoading(true);
 
-    // Simulate AI response
-    setTimeout(() => {
+    try {
+      // Call QA API to search for similar questions
+      const response = await fetch('/api/qa/search', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          query: question,
+          n_results: 3,
+        }),
+      });
+
+      if (response.ok) {
+        const data = await response.json();
+        
+        if (data.results && data.results.length > 0) {
+          // Display suggested questions
+          const suggestionsMessage: QAMessage = {
+            id: (Date.now() + 1).toString(),
+            type: "suggestions",
+            content: "以下の類似する質問が見つかりました。クリックすると回答を表示します。",
+            timestamp: new Date().toLocaleTimeString("ja-JP", { hour: "2-digit", minute: "2-digit" }),
+            status: "complete",
+            suggestedQuestions: data.results
+          };
+          setMessages(prev => [...prev, suggestionsMessage]);
+        } else {
+          // No similar questions found
+          const noResultMessage: QAMessage = {
+            id: (Date.now() + 1).toString(),
+            type: "system",
+            content: "類似する質問が見つかりませんでした。お探しの情報について、より具体的に質問していただけますか？",
+            timestamp: new Date().toLocaleTimeString("ja-JP", { hour: "2-digit", minute: "2-digit" })
+          };
+          setMessages(prev => [...prev, noResultMessage]);
+        }
+      } else {
+        throw new Error('API request failed');
+      }
+    } catch (error) {
+      console.error('Error searching FAQs:', error);
+      // Fallback to simulated response
       const answerMessage: QAMessage = {
         id: (Date.now() + 1).toString(),
         type: "answer",
@@ -116,8 +166,23 @@ export default function QAChatPage() {
         sources: ["ユーザーマニュアル", "FAQ", "システムドキュメント"]
       };
       setMessages(prev => [...prev, answerMessage]);
+    } finally {
       setIsLoading(false);
-    }, 1500);
+    }
+  };
+
+  const handleQuestionClick = (suggestion: SuggestedQuestion) => {
+    // Display the answer for the clicked question
+    const answerMessage: QAMessage = {
+      id: Date.now().toString(),
+      type: "answer",
+      content: `【質問】\n${suggestion.question_title}\n\n【回答】\n${suggestion.answer_content}`,
+      timestamp: new Date().toLocaleTimeString("ja-JP", { hour: "2-digit", minute: "2-digit" }),
+      status: "complete",
+      confidence: Math.round(suggestion.similarity_score * 100),
+      sources: [suggestion.category_name, `記録番号: ${suggestion.record_number}`]
+    };
+    setMessages(prev => [...prev, answerMessage]);
   };
 
   const generateAnswer = (question: string): string => {
@@ -137,7 +202,7 @@ export default function QAChatPage() {
     }
   };
 
-  const generateRelatedQuestions = (question: string): string[] => {
+  const generateRelatedQuestions = (_question: string): string[] => {
     const related = [
       "この機能の詳細設定について教えてください",
       "トラブルシューティングガイドはありますか？",
@@ -146,7 +211,7 @@ export default function QAChatPage() {
     return related.slice(0, 2 + Math.floor(Math.random() * 2));
   };
 
-  const handleKeyPress = (e: React.KeyboardEvent) => {
+  const handleKeyDown = (e: React.KeyboardEvent) => {
     if (e.key === "Enter" && !e.shiftKey) {
       e.preventDefault();
       handleSendMessage();
@@ -245,10 +310,45 @@ export default function QAChatPage() {
                               ? "bg-blue-600 text-white"
                               : message.type === "system"
                               ? "bg-yellow-50 text-gray-800 border border-yellow-200"
+                              : message.type === "suggestions"
+                              ? "bg-gradient-to-r from-blue-50 to-indigo-50 border border-blue-200"
                               : "bg-white text-gray-800 shadow-sm"
                           }`}
                         >
                           <p className="whitespace-pre-wrap">{message.content}</p>
+                          
+                          {/* Display suggested questions */}
+                          {message.type === "suggestions" && message.suggestedQuestions && (
+                            <div className="mt-4 space-y-3">
+                              {message.suggestedQuestions.map((suggestion, idx) => (
+                                <div
+                                  key={idx}
+                                  onClick={() => handleQuestionClick(suggestion)}
+                                  className="p-3 bg-white rounded-lg border border-gray-200 hover:border-blue-400 hover:shadow-md cursor-pointer transition-all"
+                                >
+                                  <div className="flex items-start justify-between">
+                                    <div className="flex-1">
+                                      <h4 className="font-medium text-gray-900 mb-1">
+                                        {suggestion.question_title}
+                                      </h4>
+                                      <p className="text-sm text-gray-600 line-clamp-2">
+                                        {suggestion.question_content}
+                                      </p>
+                                      <div className="flex items-center gap-3 mt-2">
+                                        <span className="text-xs px-2 py-1 bg-blue-100 text-blue-700 rounded">
+                                          {suggestion.category_name}
+                                        </span>
+                                        <span className="text-xs text-gray-500">
+                                          類似度: {Math.round(suggestion.similarity_score * 100)}%
+                                        </span>
+                                      </div>
+                                    </div>
+                                    <ChevronRight className="w-5 h-5 text-gray-400 ml-2 flex-shrink-0" />
+                                  </div>
+                                </div>
+                              ))}
+                            </div>
+                          )}
                           
                           {message.confidence && (
                             <div className="mt-3 pt-3 border-t border-gray-100">
@@ -332,7 +432,7 @@ export default function QAChatPage() {
                   type="text"
                   value={inputValue}
                   onChange={(e) => setInputValue(e.target.value)}
-                  onKeyPress={handleKeyPress}
+                  onKeyDown={handleKeyDown}
                   placeholder="質問を入力してください..."
                   className="flex-1 px-4 py-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
                   disabled={isLoading}
