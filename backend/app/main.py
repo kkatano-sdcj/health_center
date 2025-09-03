@@ -96,6 +96,10 @@ app.include_router(rag.router, tags=["rag"])
 from app.api import aichat
 app.include_router(aichat.router, prefix="/api/aichat", tags=["aichat"])
 
+# QA Chat APIルーターの登録
+from app.api import qa_chat
+app.include_router(qa_chat.router, tags=["qa_chat"])
+
 # Conversation endpoints are now integrated in aichat router
 
 # Note APIルーターの登録

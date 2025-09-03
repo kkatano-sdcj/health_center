@@ -1,0 +1,24 @@
+{
+  "supabase_url": "https://ivpwniudlxktnruxnmfy.supabase.co",
+  "supabase_project_ref": "ivpwniudlxktnruxnmfy",
+  "tables_created": [
+    "organizations",
+    "departments",
+    "roles",
+    "users",
+    "user_sessions",
+    "audit_logs",
+    "faq_categories",
+    "faqs",
+    "faq_comments",
+    "faq_attachments",
+    "faq_audit_logs"
+  ],
+  "features": {
+    "user_management": true,
+    "faq_system": true,
+    "audit_logging": true,
+    "rls_enabled": true,
+    "full_text_search": true
+  }
+}

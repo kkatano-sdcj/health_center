@@ -30,6 +30,10 @@ class Settings(BaseSettings):
     CHROMA_HOST: str = "localhost"
     CHROMA_PORT: int = 8000
     
+    # QA Vector DB Settings
+    QA_CHROMA_COLLECTION_NAME: str = "qa_faq_embeddings"
+    QA_EMBEDDING_MODEL: str = "paraphrase-multilingual-mpnet-base-v2"
+    
     # OpenAI
     OPENAI_API_KEY: str = ""
     
@@ -44,6 +48,10 @@ class Settings(BaseSettings):
     
     # Vector Search
     EMBEDDING_MODEL: str = "sentence-transformers/paraphrase-multilingual-mpnet-base-v2"
+    
+    # Supabase Settings
+    SUPABASE_URL: str = ""
+    SUPABASE_KEY: str = ""
     
     class Config:
         env_file = ".env"
