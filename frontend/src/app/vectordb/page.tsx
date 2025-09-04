@@ -1,7 +1,7 @@
 "use client";
 
 import React, { useState, useEffect } from 'react';
-import { UnifiedHeader } from '@/components/layout/UnifiedHeader';
+import { Navigation } from '@/components/layout/Navigation';
 import { Search, Database, FileText, BarChart, Loader, RefreshCw, Trash2, X, CheckSquare, Square, Eye } from 'lucide-react';
 
 interface VectorStats {
@@ -228,7 +228,7 @@ export default function VectorDBPage() {
 
   return (
     <div className="min-h-screen bg-gray-50">
-      <UnifiedHeader />
+      <Navigation />
 
       <main className="max-w-7xl mx-auto py-8 px-4 sm:px-6 lg:px-8">
         <div className="mb-8">

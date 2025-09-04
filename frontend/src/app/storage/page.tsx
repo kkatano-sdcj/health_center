@@ -1,7 +1,7 @@
 "use client";
 
 import React, { useState, useEffect } from 'react';
-import { UnifiedHeader } from '@/components/layout/UnifiedHeader';
+import { Navigation } from '@/components/layout/Navigation';
 import { Eye, FileText, Search, RefreshCw, FileIcon, FileCode, FileSpreadsheet, Trash2, CheckSquare, Square, Download, Database, CheckCircle } from 'lucide-react';
 import { getConvertedFiles, getFileContent, deleteFile, batchDeleteFiles, formatFileSize, ConvertedFile, FileContent, addToVectorDB } from '@/services/storageApi';
 import ReactMarkdown from 'react-markdown';
@@ -194,7 +194,7 @@ export default function StoragePage() {
 
   return (
     <div className="min-h-screen bg-gray-50">
-      <UnifiedHeader />
+      <Navigation />
 
       <main className="max-w-7xl mx-auto py-8 px-4 sm:px-6 lg:px-8">
         <div className="mb-8">

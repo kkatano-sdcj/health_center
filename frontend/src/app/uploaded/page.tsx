@@ -1,7 +1,7 @@
 "use client";
 
 import React, { useState, useEffect } from 'react';
-import { UnifiedHeader } from '@/components/layout/UnifiedHeader';
+import { Navigation } from '@/components/layout/Navigation';
 import { Download, Trash2, FileText, Search, RefreshCw, FileIcon, FileCode, FileSpreadsheet, Image, CheckCircle, CheckSquare, Square, Eye } from 'lucide-react';
 import { getUploadedFiles, downloadFile, deleteFile, batchDeleteFiles, formatFileSize, UploadedFile, getFilePreview } from '@/services/uploadedApi';
 import ReactMarkdown from 'react-markdown';
@@ -173,7 +173,7 @@ export default function UploadedPage() {
 
   return (
     <div className="min-h-screen bg-gray-50">
-      <UnifiedHeader />
+      <Navigation />
 
       <main className="max-w-7xl mx-auto py-8 px-4 sm:px-6 lg:px-8">
         <div className="mb-8">

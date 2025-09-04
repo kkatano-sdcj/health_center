@@ -1,7 +1,7 @@
 'use client';
 
 import { useState, useCallback } from 'react';
-import { UnifiedHeader } from '@/components/layout/UnifiedHeader';
+import { Navigation } from '@/components/layout/Navigation';
 import { Search, Send, FileText, Sparkles, AlertCircle, Loader2 } from 'lucide-react';
 
 interface Source {
@@ -71,7 +71,7 @@ export default function RAGPage() {
 
   return (
     <div className="min-h-screen bg-gray-50">
-      <UnifiedHeader />
+      <Navigation />
       <div className="container mx-auto p-6 max-w-7xl">
       <div className="mb-8">
         <h1 className="text-3xl font-bold flex items-center gap-2">

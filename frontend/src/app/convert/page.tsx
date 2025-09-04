@@ -7,7 +7,7 @@ import PreviewModal from '@/components/convert/PreviewModal';
 import FileUploader from '@/components/convert/FileUploader';
 import ConversionResults from '@/components/convert/ConversionResults';
 import { useWebSocket } from '@/hooks/useWebSocket';
-import { UnifiedHeader } from '@/components/layout/UnifiedHeader';
+import { Navigation } from '@/components/layout/Navigation';
 import { AxiosError } from 'axios';
 
 export default function ConvertPage() {
@@ -302,7 +302,7 @@ export default function ConvertPage() {
 
   return (
     <div className="min-h-screen bg-gray-50">
-      <UnifiedHeader />
+      <Navigation />
 
       <main className="max-w-7xl mx-auto py-8 px-4 sm:px-6 lg:px-8">
         <div className="mb-8">
