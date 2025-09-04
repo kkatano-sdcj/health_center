@@ -27,11 +27,20 @@ interface FAQ extends SupabaseFAQ {
 }
 
 const categories = [
-  "全般",
-  "技術的な質問",
-  "使い方",
-  "トラブルシューティング",
-  "セキュリティ",
+  "すべて",
+  "会計カード",
+  "レセプト", 
+  "DPC",
+  "収納・請求",
+  "マスタ",
+  "統計・DWH",
+  "処方・オーダ",
+  "病名",
+  "外来",
+  "入院",
+  "システム",
+  "帳票",
+  "画面表示",
   "その他"
 ];
 
@@ -70,14 +79,44 @@ export default function FAQPage() {
         if (savedFAQs) {
           setFaqs(JSON.parse(savedFAQs));
         } else {
-          setError('Supabaseが設定されていません。.envファイルにSUPABASE_URLとSUPABASE_ANON_KEYを設定してください。');
+          setError('Supabaseが設定されていません。env.localファイルにSUPABASE_URLとSUPABASE_ANON_KEYを設定してください。');
         }
         return;
       }
       
+      // 解決済みのFAQのみを取得し、カテゴリ情報も含める（ユーザー情報は除外）
       const { data, error } = await supabase
         .from('faqs')
-        .select('*')
+        .select(`
+          id,
+          record_number,
+          question_title,
+          question_content,
+          answer_content,
+          status,
+          priority,
+          view_count,
+          helpful_count,
+          not_helpful_count,
+          tags,
+          question_date,
+          response_date,
+          resolved_date,
+          created_at,
+          updated_at,
+          faq_categories!inner (
+            id,
+            code,
+            name,
+            description,
+            color_code,
+            icon_name
+          )
+        `)
+        .eq('status', 'resolved')
+        .not('answer_content', 'is', null)
+        .eq('faq_categories.is_active', true)
+        .order('view_count', { ascending: false })
         .order('created_at', { ascending: false });
 
       if (error) throw error;
@@ -85,21 +124,29 @@ export default function FAQPage() {
       if (data) {
         const formattedFAQs: FAQ[] = data.map(faq => ({
           ...faq,
-          question: faq.question_content,  // マッピング
-          answer: faq.answer_content,      // マッピング
+          question: faq.question_content,  // UIで使用するフィールド
+          answer: faq.answer_content,      // UIで使用するフィールド
           view_count: faq.view_count || 0,
           helpful_count: faq.helpful_count || 0,
-          category: faq.category || '全般',
+          category: faq.faq_categories?.name || '全般',
           created_at: faq.created_at,
           updated_at: faq.updated_at || faq.created_at,
           tags: faq.tags || [],
           isExpanded: false
         }));
         setFaqs(formattedFAQs);
+        console.log('Loaded FAQs:', formattedFAQs.length, 'items');
       }
     } catch (err) {
       console.error('Error fetching FAQs:', err);
-      setError('FAQの読み込みに失敗しました');
+      const errorMessage = err instanceof Error ? err.message : 'Unknown error';
+      
+      // RLSエラーの場合は、より分かりやすいメッセージを表示
+      if (errorMessage.includes('infinite recursion') || errorMessage.includes('policy')) {
+        setError('データベース設定を修正中です。しばらくお待ちください。');
+      } else {
+        setError('FAQの読み込みに失敗しました: ' + errorMessage);
+      }
       
       // フォールバック：ローカルストレージから読み込み
       const savedFAQs = localStorage.getItem("faqs");
@@ -138,13 +185,15 @@ export default function FAQPage() {
         : f
     ));
 
-    // バックグラウンドでビューカウントを更新
+    // バックグラウンドでビューカウントを更新（RPC関数を使用）
     if (!faq.isExpanded && supabase) {
       try {
-        await supabase
-          .from('faqs')
-          .update({ view_count: faq.view_count + 1 })
-          .eq('id', id);
+        const { error } = await supabase.rpc('increment_faq_view_count', {
+          faq_id: id
+        });
+        if (error) {
+          console.error('Error updating view count:', error);
+        }
       } catch (err) {
         console.error('Error updating view count:', err);
       }
@@ -165,10 +214,18 @@ export default function FAQPage() {
     // バックグラウンドで有用カウントを更新
     if (supabase) {
       try {
-        await supabase
+        const { error } = await supabase
           .from('faqs')
-          .update({ helpful_count: faq.helpful_count + 1 })
-          .eq('id', id);
+          .update({ 
+            helpful_count: faq.helpful_count + 1,
+            updated_at: new Date().toISOString()
+          })
+          .eq('id', id)
+          .eq('status', 'resolved');
+        
+        if (error) {
+          console.error('Error updating helpful count:', error);
+        }
       } catch (err) {
         console.error('Error updating helpful count:', err);
       }
@@ -195,9 +252,9 @@ export default function FAQPage() {
         const { data, error } = await supabase
           .from('faqs')
           .update({
+            question_title: newFAQ.question,
             question_content: newFAQ.question,
             answer_content: newFAQ.answer,
-            category: newFAQ.category || "全般",
             tags: newFAQ.tags || [],
             updated_at: new Date().toISOString()
           })
@@ -221,16 +278,24 @@ export default function FAQPage() {
         }
         setEditingFAQ(null);
       } else {
-        // 新しいFAQを作成
+        // 新しいFAQを作成（注意：実際の実装では必要なフィールドを全て設定する必要があります）
         const { data, error } = await supabase
           .from('faqs')
           .insert({
+            record_number: `USER-${Date.now()}`,
+            question_title: newFAQ.question,
             question_content: newFAQ.question,
             answer_content: newFAQ.answer,
-            category: newFAQ.category || "全般",
+            status: 'resolved',
+            priority: 'medium',
+            category_id: '10000000-0000-0000-0000-000000000014', // "その他"カテゴリのID
             tags: newFAQ.tags || [],
+            question_date: new Date().toISOString().split('T')[0],
+            response_date: new Date().toISOString().split('T')[0],
+            resolved_date: new Date().toISOString().split('T')[0],
             view_count: 0,
-            helpful_count: 0
+            helpful_count: 0,
+            not_helpful_count: 0
           })
           .select()
           .single();

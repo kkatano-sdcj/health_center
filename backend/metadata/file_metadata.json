@@ -195,7 +195,9 @@
     "notes": null,
     "is_vectorized": false,
     "vectorization_date": null,
-    "vector_chunks": 0
+    "vector_chunks": 0,
+    "in_vectordb": true,
+    "vectordb_added_at": "2025-09-04T06:28:21.844609"
   },
   "test1": {
     "original_filename": "test1.txt",
@@ -283,7 +285,9 @@
     "notes": null,
     "is_vectorized": false,
     "vectorization_date": null,
-    "vector_chunks": 0
+    "vector_chunks": 0,
+    "in_vectordb": true,
+    "vectordb_added_at": "2025-09-04T05:50:29.516084"
   },
   "CCB.公開マスタ設定設計書_ウィジェット(アレルギー)": {
     "original_filename": "CCB.公開マスタ設定設計書_ウィジェット(アレルギー).pptx",
@@ -329,6 +333,8 @@
     "notes": null,
     "is_vectorized": false,
     "vectorization_date": null,
-    "vector_chunks": 0
+    "vector_chunks": 0,
+    "in_vectordb": true,
+    "vectordb_added_at": "2025-09-04T05:50:11.364927"
   }
 }
