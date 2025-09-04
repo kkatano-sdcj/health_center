@@ -2,35 +2,28 @@
 
 import React, { useState, useEffect } from "react";
 import { Navigation } from "@/components/layout/Navigation";
+import { supabase, FAQ as SupabaseFAQ } from "@/lib/supabase";
 import { 
   Search, 
   ChevronDown, 
   ChevronUp, 
   Plus, 
   Edit3, 
-  Trash2, 
-  Save, 
-  X,
-  Tag,
+  Trash2,
   Clock,
   Eye,
   ThumbsUp,
   Filter,
   BookOpen,
-  HelpCircle
+  HelpCircle,
+  Loader2
 } from "lucide-react";
 
-interface FAQ {
-  id: string;
+interface FAQ extends SupabaseFAQ {
+  isExpanded?: boolean;
+  // UI用のプロパティ（データベースのカラム名とは別）
   question: string;
   answer: string;
-  category: string;
-  tags: string[];
-  viewCount: number;
-  helpfulCount: number;
-  createdAt: string;
-  updatedAt: string;
-  isExpanded?: boolean;
 }
 
 const categories = [
@@ -49,66 +42,74 @@ export default function FAQPage() {
   const [selectedTags, setSelectedTags] = useState<string[]>([]);
   const [isAddingNew, setIsAddingNew] = useState(false);
   const [editingFAQ, setEditingFAQ] = useState<FAQ | null>(null);
+  const [isLoading, setIsLoading] = useState(true);
+  const [isSaving, setIsSaving] = useState(false);
+  const [error, setError] = useState<string | null>(null);
   const [newFAQ, setNewFAQ] = useState<Partial<FAQ>>({
     question: "",
     answer: "",
+    question_content: "",
+    answer_content: "",
     category: "全般",
     tags: []
   });
 
-  // Load FAQs from localStorage on mount
+  // Load FAQs from Supabase on mount
   useEffect(() => {
-    const savedFAQs = localStorage.getItem("faqs");
-    if (savedFAQs) {
-      setFaqs(JSON.parse(savedFAQs));
-    } else {
-      // Initialize with sample FAQs
-      const sampleFAQs: FAQ[] = [
-        {
-          id: "1",
-          question: "AIチャット機能の使い方を教えてください",
-          answer: "AIチャット機能では、データベースまたはWeb検索を選択して質問できます。左側のメニューからデータソースを選択し、質問を入力してEnterキーを押すか送信ボタンをクリックしてください。",
-          category: "使い方",
-          tags: ["AIチャット", "基本機能"],
-          viewCount: 245,
-          helpfulCount: 89,
-          createdAt: new Date().toISOString(),
-          updatedAt: new Date().toISOString()
-        },
-        {
-          id: "2",
-          question: "アップロードできるファイル形式は何ですか？",
-          answer: "PDF、Word文書（.docx）、テキストファイル（.txt）、Markdown（.md）、Excel（.xlsx）など、多様なファイル形式に対応しています。画像ファイルからのテキスト抽出も可能です。",
-          category: "技術的な質問",
-          tags: ["ファイル", "アップロード"],
-          viewCount: 189,
-          helpfulCount: 67,
-          createdAt: new Date().toISOString(),
-          updatedAt: new Date().toISOString()
-        },
-        {
-          id: "3",
-          question: "データのセキュリティはどのように保護されていますか？",
-          answer: "すべてのデータは暗号化されて保存され、アクセス制御により権限のあるユーザーのみがアクセスできます。また、定期的なセキュリティ監査を実施しています。",
-          category: "セキュリティ",
-          tags: ["セキュリティ", "データ保護"],
-          viewCount: 156,
-          helpfulCount: 92,
-          createdAt: new Date().toISOString(),
-          updatedAt: new Date().toISOString()
-        }
-      ];
-      setFaqs(sampleFAQs);
-      localStorage.setItem("faqs", JSON.stringify(sampleFAQs));
-    }
+    fetchFAQs();
   }, []);
 
-  // Save FAQs to localStorage whenever they change
-  useEffect(() => {
-    if (faqs.length > 0) {
-      localStorage.setItem("faqs", JSON.stringify(faqs));
+  const fetchFAQs = async () => {
+    try {
+      setIsLoading(true);
+      setError(null);
+      
+      if (!supabase) {
+        // Supabaseが設定されていない場合はローカルストレージから読み込み
+        const savedFAQs = localStorage.getItem("faqs");
+        if (savedFAQs) {
+          setFaqs(JSON.parse(savedFAQs));
+        } else {
+          setError('Supabaseが設定されていません。.envファイルにSUPABASE_URLとSUPABASE_ANON_KEYを設定してください。');
+        }
+        return;
+      }
+      
+      const { data, error } = await supabase
+        .from('faqs')
+        .select('*')
+        .order('created_at', { ascending: false });
+
+      if (error) throw error;
+
+      if (data) {
+        const formattedFAQs: FAQ[] = data.map(faq => ({
+          ...faq,
+          question: faq.question_content,  // マッピング
+          answer: faq.answer_content,      // マッピング
+          view_count: faq.view_count || 0,
+          helpful_count: faq.helpful_count || 0,
+          category: faq.category || '全般',
+          created_at: faq.created_at,
+          updated_at: faq.updated_at || faq.created_at,
+          tags: faq.tags || [],
+          isExpanded: false
+        }));
+        setFaqs(formattedFAQs);
+      }
+    } catch (err) {
+      console.error('Error fetching FAQs:', err);
+      setError('FAQの読み込みに失敗しました');
+      
+      // フォールバック：ローカルストレージから読み込み
+      const savedFAQs = localStorage.getItem("faqs");
+      if (savedFAQs) {
+        setFaqs(JSON.parse(savedFAQs));
+      }
+    } finally {
+      setIsLoading(false);
     }
-  }, [faqs]);
+  };
 
   // Filter FAQs based on search and category
   const filteredFAQs = faqs.filter(faq => {
@@ -119,61 +120,162 @@ export default function FAQPage() {
       selectedCategory === "すべて" || faq.category === selectedCategory;
     const matchesTags = 
       selectedTags.length === 0 || 
-      selectedTags.some(tag => faq.tags.includes(tag));
+      selectedTags.some(tag => faq.tags?.includes(tag));
     return matchesSearch && matchesCategory && matchesTags;
   });
 
   // Get all unique tags
-  const allTags = Array.from(new Set(faqs.flatMap(faq => faq.tags)));
+  const allTags = Array.from(new Set(faqs.flatMap(faq => faq.tags || [])));
 
-  const toggleFAQ = (id: string) => {
-    setFaqs(faqs.map(faq => 
-      faq.id === id 
-        ? { ...faq, isExpanded: !faq.isExpanded, viewCount: faq.viewCount + 1 }
-        : faq
+  const toggleFAQ = async (id: string) => {
+    const faq = faqs.find(f => f.id === id);
+    if (!faq) return;
+
+    // UI を即座に更新
+    setFaqs(faqs.map(f => 
+      f.id === id 
+        ? { ...f, isExpanded: !f.isExpanded, view_count: f.view_count + 1 }
+        : f
     ));
+
+    // バックグラウンドでビューカウントを更新
+    if (!faq.isExpanded && supabase) {
+      try {
+        await supabase
+          .from('faqs')
+          .update({ view_count: faq.view_count + 1 })
+          .eq('id', id);
+      } catch (err) {
+        console.error('Error updating view count:', err);
+      }
+    }
   };
 
-  const markAsHelpful = (id: string) => {
-    setFaqs(faqs.map(faq => 
-      faq.id === id 
-        ? { ...faq, helpfulCount: faq.helpfulCount + 1 }
-        : faq
+  const markAsHelpful = async (id: string) => {
+    const faq = faqs.find(f => f.id === id);
+    if (!faq) return;
+
+    // UI を即座に更新
+    setFaqs(faqs.map(f => 
+      f.id === id 
+        ? { ...f, helpful_count: f.helpful_count + 1 }
+        : f
     ));
+
+    // バックグラウンドで有用カウントを更新
+    if (supabase) {
+      try {
+        await supabase
+          .from('faqs')
+          .update({ helpful_count: faq.helpful_count + 1 })
+          .eq('id', id);
+      } catch (err) {
+        console.error('Error updating helpful count:', err);
+      }
+    }
   };
 
-  const saveFAQ = () => {
+  const saveFAQ = async () => {
     if (!newFAQ.question || !newFAQ.answer) {
       alert("質問と回答を入力してください。");
       return;
     }
 
-    const faqToSave: FAQ = {
-      id: editingFAQ?.id || Date.now().toString(),
-      question: newFAQ.question!,
-      answer: newFAQ.answer!,
-      category: newFAQ.category || "全般",
-      tags: newFAQ.tags || [],
-      viewCount: editingFAQ?.viewCount || 0,
-      helpfulCount: editingFAQ?.helpfulCount || 0,
-      createdAt: editingFAQ?.createdAt || new Date().toISOString(),
-      updatedAt: new Date().toISOString()
-    };
-
-    if (editingFAQ) {
-      setFaqs(faqs.map(faq => faq.id === editingFAQ.id ? faqToSave : faq));
-      setEditingFAQ(null);
-    } else {
-      setFaqs([faqToSave, ...faqs]);
-      setIsAddingNew(false);
+    if (!supabase) {
+      alert("Supabaseが設定されていません。");
+      return;
     }
 
-    setNewFAQ({ question: "", answer: "", category: "全般", tags: [] });
+    setIsSaving(true);
+    setError(null);
+
+    try {
+      if (editingFAQ) {
+        // 既存のFAQを更新
+        const { data, error } = await supabase
+          .from('faqs')
+          .update({
+            question_content: newFAQ.question,
+            answer_content: newFAQ.answer,
+            category: newFAQ.category || "全般",
+            tags: newFAQ.tags || [],
+            updated_at: new Date().toISOString()
+          })
+          .eq('id', editingFAQ.id)
+          .select()
+          .single();
+
+        if (error) throw error;
+
+        if (data) {
+          setFaqs(faqs.map(faq => 
+            faq.id === editingFAQ.id 
+              ? { 
+                  ...data,
+                  question: data.question_content,
+                  answer: data.answer_content,
+                  isExpanded: false 
+                }
+              : faq
+          ));
+        }
+        setEditingFAQ(null);
+      } else {
+        // 新しいFAQを作成
+        const { data, error } = await supabase
+          .from('faqs')
+          .insert({
+            question_content: newFAQ.question,
+            answer_content: newFAQ.answer,
+            category: newFAQ.category || "全般",
+            tags: newFAQ.tags || [],
+            view_count: 0,
+            helpful_count: 0
+          })
+          .select()
+          .single();
+
+        if (error) throw error;
+
+        if (data) {
+          setFaqs([{ 
+            ...data,
+            question: data.question_content,
+            answer: data.answer_content,
+            isExpanded: false 
+          }, ...faqs]);
+        }
+      }
+
+      setIsAddingNew(false);
+      setNewFAQ({ question: "", answer: "", question_content: "", answer_content: "", category: "全般", tags: [] });
+    } catch (err) {
+      console.error('Error saving FAQ:', err);
+      setError('FAQの保存に失敗しました');
+    } finally {
+      setIsSaving(false);
+    }
   };
 
-  const deleteFAQ = (id: string) => {
+  const deleteFAQ = async (id: string) => {
     if (window.confirm("このFAQを削除してもよろしいですか？")) {
-      setFaqs(faqs.filter(faq => faq.id !== id));
+      if (!supabase) {
+        alert("Supabaseが設定されていません。");
+        return;
+      }
+      try {
+        const { error } = await supabase
+          .from('faqs')
+          .delete()
+          .eq('id', id);
+
+        if (error) throw error;
+
+        setFaqs(faqs.filter(faq => faq.id !== id));
+      } catch (err) {
+        console.error('Error deleting FAQ:', err);
+        setError('FAQの削除に失敗しました');
+      }
     }
   };
 
@@ -191,7 +293,7 @@ export default function FAQPage() {
   const cancelEdit = () => {
     setIsAddingNew(false);
     setEditingFAQ(null);
-    setNewFAQ({ question: "", answer: "", category: "全般", tags: [] });
+    setNewFAQ({ question: "", answer: "", question_content: "", answer_content: "", category: "全般", tags: [] });
   };
 
   return (
@@ -299,7 +401,7 @@ export default function FAQPage() {
                   </div>
                   <div>
                     <p className="text-2xl font-bold text-gray-900">
-                      {faqs.reduce((sum, faq) => sum + faq.viewCount, 0)}
+                      {faqs.reduce((sum, faq) => sum + faq.view_count, 0)}
                     </p>
                     <p className="text-sm text-gray-600">総閲覧数</p>
                   </div>
@@ -312,7 +414,7 @@ export default function FAQPage() {
                   </div>
                   <div>
                     <p className="text-2xl font-bold text-gray-900">
-                      {faqs.reduce((sum, faq) => sum + faq.helpfulCount, 0)}
+                      {faqs.reduce((sum, faq) => sum + faq.helpful_count, 0)}
                     </p>
                     <p className="text-sm text-gray-600">役立った数</p>
                   </div>
@@ -392,8 +494,10 @@ export default function FAQPage() {
                   </button>
                   <button
                     onClick={saveFAQ}
-                    className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors"
+                    disabled={isSaving}
+                    className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors disabled:opacity-50 disabled:cursor-not-allowed flex items-center gap-2"
                   >
+                    {isSaving && <Loader2 className="w-4 h-4 animate-spin" />}
                     保存
                   </button>
                 </div>
@@ -401,6 +505,21 @@ export default function FAQPage() {
             </div>
           )}
 
+          {/* Error Message */}
+          {error && (
+            <div className="bg-red-50 border border-red-200 rounded-lg p-4 mb-6">
+              <p className="text-red-600">{error}</p>
+            </div>
+          )}
+
+          {/* Loading State */}
+          {isLoading ? (
+            <div className="bg-white rounded-xl shadow-sm p-12 text-center">
+              <Loader2 className="w-12 h-12 text-gray-400 animate-spin mx-auto mb-4" />
+              <p className="text-gray-500">FAQを読み込んでいます...</p>
+            </div>
+          ) : (
+            <>          
           {/* FAQ List */}
           <div className="space-y-4">
             {filteredFAQs.map(faq => (
@@ -429,15 +548,15 @@ export default function FAQPage() {
                             </span>
                             <span className="flex items-center gap-1">
                               <Eye className="w-4 h-4" />
-                              {faq.viewCount}
+                              {faq.view_count}
                             </span>
                             <span className="flex items-center gap-1">
                               <ThumbsUp className="w-4 h-4" />
-                              {faq.helpfulCount}
+                              {faq.helpful_count}
                             </span>
                             <span className="flex items-center gap-1">
                               <Clock className="w-4 h-4" />
-                              {new Date(faq.updatedAt).toLocaleDateString("ja-JP")}
+                              {new Date(faq.updated_at).toLocaleDateString("ja-JP")}
                             </span>
                           </div>
                         </div>
@@ -474,7 +593,7 @@ export default function FAQPage() {
                       </div>
                       <div className="mt-4 flex items-center justify-between">
                         <div className="flex flex-wrap gap-2">
-                          {faq.tags.map(tag => (
+                          {faq.tags?.map(tag => (
                             <span
                               key={tag}
                               className="px-3 py-1 text-xs bg-blue-100 text-blue-700 rounded-full"
@@ -502,7 +621,7 @@ export default function FAQPage() {
           </div>
 
           {/* Empty State */}
-          {filteredFAQs.length === 0 && (
+          {!isLoading && filteredFAQs.length === 0 && (
             <div className="bg-white rounded-xl shadow-sm p-12 text-center">
               <BookOpen className="w-16 h-16 text-gray-300 mx-auto mb-4" />
               <p className="text-gray-500 mb-4">該当するFAQが見つかりませんでした</p>
@@ -513,6 +632,8 @@ export default function FAQPage() {
                 新しいFAQを追加
               </button>
             </div>
+          )}
+            </>
           )}
         </div>
       </div>
