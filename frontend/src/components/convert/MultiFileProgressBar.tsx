@@ -11,7 +11,7 @@ interface FileProgress {
 
 interface MultiFileProgressBarProps {
   files: File[];
-  progressData: Record<string, any>;
+  progressData: Record<string, Record<string, unknown>>;
   onCancel?: (fileId: string) => void;
 }
 
@@ -20,20 +20,20 @@ const MultiFileProgressBar: React.FC<MultiFileProgressBarProps> = ({
   progressData,
   onCancel
 }) => {
-  const getFileProgress = (file: File, index: number): FileProgress => {
+  const getFileProgress = (file: File): FileProgress => {
     // progressDataから該当ファイルの進捗を探す
     const fileProgressKey = Object.keys(progressData).find(key => 
       progressData[key]?.file_name === file.name
     );
     
     if (fileProgressKey && progressData[fileProgressKey]) {
-      const data = progressData[fileProgressKey];
+      const data = progressData[fileProgressKey] as Record<string, unknown>;
       return {
         fileName: file.name,
-        progress: data.progress || 0,
-        status: data.status || 'waiting',
-        currentStep: data.current_step,
-        error: data.error_message
+        progress: (data.progress as number) || 0,
+        status: (data.status as string) || 'waiting',
+        currentStep: data.current_step as string,
+        error: data.error_message as string | undefined
       };
     }
     
@@ -77,10 +77,10 @@ const MultiFileProgressBar: React.FC<MultiFileProgressBarProps> = ({
     <div className="multi-file-progress">
       <h3 className="text-lg font-semibold mb-4">変換進捗</h3>
       <div className="space-y-4">
-        {files.map((file, index) => {
-          const progress = getFileProgress(file, index);
+        {files.map((file) => {
+          const progress = getFileProgress(file);
           return (
-            <div key={`${file.name}-${index}`} className="file-progress-item">
+            <div key={file.name} className="file-progress-item">
               <div className="flex justify-between items-center mb-2">
                 <div className="flex items-center space-x-2">
                   <span>{getStatusIcon(progress.status)}</span>

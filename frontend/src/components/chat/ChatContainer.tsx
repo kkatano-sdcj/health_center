@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useState, useRef, useEffect } from "react";
+import React, { useState, useRef, useEffect, useCallback } from "react";
 import { ChatMessage, Message } from "./ChatMessage";
 import { TypingIndicator } from "./TypingIndicator";
 import { WelcomeMessage } from "./WelcomeMessage";
@@ -44,9 +44,9 @@ export const ChatContainer: React.FC<ChatContainerProps> = ({
       setMessages([]);
       loadThreadMessages(threadId);
     }
-  }, [threadId]);
+  }, [threadId, conversationId, loadThreadMessages]);
 
-  const loadThreadMessages = async (threadId?: string) => {
+  const loadThreadMessages = useCallback(async (threadId?: string) => {
     if (!threadId) return;
     
     try {
@@ -58,7 +58,12 @@ export const ChatContainer: React.FC<ChatContainerProps> = ({
         if (data.messages && data.messages.length > 0) {
           const loadedMessages: Message[] = [];
           
-          data.messages.forEach((msg: any, index: number) => {
+          data.messages.forEach((msg: {
+            role: string;
+            content: string;
+            timestamp?: string;
+            metadata?: Record<string, unknown>;
+          }, index: number) => {
             const timestamp = msg.timestamp ? new Date(msg.timestamp).toLocaleTimeString("ja-JP", {
               hour: "2-digit",
               minute: "2-digit"
@@ -87,15 +92,15 @@ export const ChatContainer: React.FC<ChatContainerProps> = ({
                 // Convert sources to documents format
                 if (meta.sources && meta.sources.length > 0) {
                   aiMessage.documents = meta.search_type === 'web'
-                    ? meta.sources.map((source: any, idx: number) => ({
+                    ? meta.sources.map((source: { title?: string; url?: string }, idx: number) => ({
                         id: String(idx + 1),
                         title: source.title || 'Web Result',
                         type: 'web',
                         updatedAt: source.url || '',
                       }))
-                    : meta.sources.map((source: any, idx: number) => ({
+                    : meta.sources.map((source: { filename?: string }, idx: number) => ({
                         id: String(idx + 1),
-                        title: source.filename,
+                        title: source.filename || 'Unknown',
                         type: source.filename?.endsWith('.pdf') ? 'pdf' : 'md',
                         updatedAt: `チャンク ${source.chunk_index + 1}/${source.total_chunks}`,
                       }));
@@ -106,7 +111,7 @@ export const ChatContainer: React.FC<ChatContainerProps> = ({
                   aiMessage.metadata = {
                     relatedDocsCount: meta.search_results || 0,
                     confidence: meta.sources?.length > 0 
-                      ? Math.round(meta.sources.reduce((acc: number, s: any) => acc + (s.similarity || 0.8), 0) / meta.sources.length * 100)
+                      ? Math.round(meta.sources.reduce((acc: number, s: { similarity?: number }) => acc + (s.similarity || 0.8), 0) / meta.sources.length * 100)
                       : 0,
                     usedReranking: meta.used_reranking
                   };
@@ -147,7 +152,7 @@ export const ChatContainer: React.FC<ChatContainerProps> = ({
     } catch (error) {
       console.error('Failed to load thread messages:', error);
     }
-  };
+  }, []);
 
   const scrollToBottom = () => {
     messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
@@ -210,7 +215,7 @@ export const ChatContainer: React.FC<ChatContainerProps> = ({
 
       // Format sources as documents for the message based on search type
       const documents = data.search_type === 'web' 
-        ? data.sources?.map((source: any, index: number) => ({
+        ? data.sources?.map((source: { title?: string; url?: string }, index: number) => ({
             id: String(index + 1),
             title: source.title || 'Web Result',
             type: 'web',
@@ -248,11 +253,11 @@ export const ChatContainer: React.FC<ChatContainerProps> = ({
       };
       
       setMessages((prev) => [...prev, aiMessage]);
-    } catch (error: any) {
+    } catch (error: unknown) {
       console.error('Chat error:', error);
       
       // Check if the error was due to abort
-      if (error.name === 'AbortError') {
+      if (error instanceof Error && error.name === 'AbortError') {
         const abortMessage: Message = {
           id: (Date.now() + 1).toString(),
           type: "assistant",
@@ -299,7 +304,7 @@ export const ChatContainer: React.FC<ChatContainerProps> = ({
     }
   };
 
-  const handleQuickAction = (action: any) => {
+  const handleQuickAction = (action: { label: string }) => {
     handleSendMessage(action.label + "を検索");
   };
 

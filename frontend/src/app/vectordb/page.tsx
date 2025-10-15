@@ -147,7 +147,7 @@ export default function VectorDBPage() {
         } else {
           errors.push(filename);
         }
-      } catch (error) {
+      } catch {
         errors.push(filename);
       }
     }

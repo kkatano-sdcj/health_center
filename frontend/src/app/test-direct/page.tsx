@@ -57,9 +57,10 @@ export default function TestDirectPage() {
         addLog(data.markdown_content);
       }
       
-    } catch (error: any) {
-      addLog(`Error: ${error.message}`);
-      setStatus(`Error: ${error.message}`);
+    } catch (error: unknown) {
+      const errorMessage = error instanceof Error ? error.message : 'Unknown error';
+      addLog(`Error: ${errorMessage}`);
+      setStatus(`Error: ${errorMessage}`);
     }
   };
 

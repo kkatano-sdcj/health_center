@@ -11,8 +11,8 @@ interface FileUploaderProps {
   onConvert?: () => void;
   useAiMode?: boolean;
   onAiModeChange?: (enabled: boolean) => void;
-  progress?: any;
-  progressData?: Record<string, any>;  // 複数ファイルの進捗データ
+  progress?: Record<string, unknown>;
+  progressData?: Record<string, Record<string, unknown>>;  // 複数ファイルの進捗データ
   onCancel?: () => void;
 }
 
@@ -95,9 +95,9 @@ const FileUploader: React.FC<FileUploaderProps> = ({
       // 複数ファイルの場合 - すべてのファイルが完了したかチェック
       if (selectedFiles.length > 1 && progressData) {
         const allFilesProcessed = selectedFiles.every(file => {
-          const fileProgress = Object.values(progressData).find((p: any) => 
+          const fileProgress = Object.values(progressData).find((p: Record<string, unknown>) => 
             p.file_name === file.name
-          );
+          ) as Record<string, unknown> | undefined;
           return fileProgress && (
             fileProgress.status === 'completed' || 
             fileProgress.status === 'failed' ||
@@ -117,8 +117,8 @@ const FileUploader: React.FC<FileUploaderProps> = ({
     if (urlInput.trim()) {
       // Create a pseudo-file for URL
       const urlFile = new File([urlInput], 'url.txt', { type: 'text/plain' });
-      (urlFile as any).isUrl = true;
-      (urlFile as any).url = urlInput;
+      (urlFile as File & { isUrl?: boolean; url?: string }).isUrl = true;
+      (urlFile as File & { isUrl?: boolean; url?: string }).url = urlInput;
       onFilesSelect([urlFile]);
       setUrlInput('');
     }

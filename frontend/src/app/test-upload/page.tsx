@@ -5,7 +5,7 @@ import axios from 'axios';
 
 export default function TestUploadPage() {
   const [file, setFile] = useState<File | null>(null);
-  const [result, setResult] = useState<any>(null);
+  const [result, setResult] = useState<Record<string, unknown> | null>(null);
   const [error, setError] = useState<string>('');
   const [loading, setLoading] = useState(false);
 
@@ -44,9 +44,10 @@ export default function TestUploadPage() {
       );
       console.log('Upload successful:', response.data);
       setResult(response.data);
-    } catch (err: any) {
+    } catch (err: unknown) {
       console.error('Upload failed:', err);
-      setError(err.message || 'Upload failed');
+      const errorMessage = err instanceof Error ? err.message : 'Upload failed';
+      setError(errorMessage);
       if (err.response) {
         console.error('Response data:', err.response.data);
         console.error('Response status:', err.response.status);

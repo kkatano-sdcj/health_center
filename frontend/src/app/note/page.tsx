@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useState, useEffect } from "react";
+import React, { useState, useEffect, useCallback } from "react";
 import { Navigation } from "@/components/layout/Navigation";
 import { Plus, Search, Calendar, Tag, Trash2, Edit3, Save, X, Pin, Star, FileText, MessageSquare, HelpCircle, Eye, Code, CheckSquare, Square, FileCheck } from "lucide-react";
 import ReactMarkdown from "react-markdown";
@@ -53,7 +53,7 @@ export default function NotePage() {
   const [isGeneratingReport, setIsGeneratingReport] = useState(false);
 
   // Load notes from API
-  const loadNotes = async () => {
+  const loadNotes = useCallback(async () => {
     setIsLoading(true);
     try {
       const params = new URLSearchParams();
@@ -71,12 +71,12 @@ export default function NotePage() {
     } finally {
       setIsLoading(false);
     }
-  };
+  }, [selectedType, selectedTags, searchQuery]);
 
   // Load notes on mount and when filters change
   useEffect(() => {
     loadNotes();
-  }, [selectedType, selectedTags, searchQuery]);
+  }, [loadNotes]);
 
   const createNewNote = async () => {
     try {
@@ -278,7 +278,7 @@ export default function NotePage() {
                 {children}
               </blockquote>
             ),
-            code: ({children, ...props}: any) => {
+            code: ({children, ...props}: { children: React.ReactNode; className?: string }) => {
               const inline = !props.className?.includes('language-');
               if (inline) {
                 return <code className="bg-gray-100 text-pink-600 px-1.5 py-0.5 rounded text-sm font-mono" {...props}>{children}</code>
@@ -726,7 +726,7 @@ export default function NotePage() {
                             <code className="block bg-white p-2 rounded border border-gray-200 font-mono">
                               ```python<br/>
                               def hello():<br/>
-                              &nbsp;&nbsp;print("Hi")<br/>
+                              &nbsp;&nbsp;print(&quot;Hi&quot;)<br/>
                               ```
                             </code>
                           </div>

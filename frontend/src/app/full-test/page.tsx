@@ -7,7 +7,7 @@ export default function FullTestPage() {
   const [logs, setLogs] = useState<string[]>([]);
   const [testFile, setTestFile] = useState<File | null>(null);
   const [converting, setConverting] = useState(false);
-  const [result, setResult] = useState<any>(null);
+  const [result, setResult] = useState<Record<string, unknown> | null>(null);
   const { progressData, isConnected, clearProgress } = useWebSocket();
   const [currentConversionId, setCurrentConversionId] = useState<string | null>(null);
 

@@ -144,7 +144,7 @@ export default function StoragePage() {
       }
       
       if (result.total_errors > 0) {
-        const errorMessages = result.errors.map((e: any) => `${e.filename}: ${e.error}`).join('\n');
+        const errorMessages = result.errors.map((e: { filename: string; error: string }) => `${e.filename}: ${e.error}`).join('\n');
         alert(`エラーが発生しました:\n${errorMessages}`);
       }
       

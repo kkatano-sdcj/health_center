@@ -1,25 +1,24 @@
 "use client";
 
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 
 export default function WorkingConvertPage() {
   const [file, setFile] = useState<File | null>(null);
   const [converting, setConverting] = useState(false);
-  const [result, setResult] = useState<any>(null);
+  const [result, setResult] = useState<Record<string, unknown> | null>(null);
   const [error, setError] = useState<string>('');
   const [logs, setLogs] = useState<string[]>([]);
   const [wsConnected, setWsConnected] = useState(false);
   const [ws, setWs] = useState<WebSocket | null>(null);
 
-  const addLog = (message: string) => {
+  const addLog = useCallback((message: string) => {
     const timestamp = new Date().toTimeString().split(' ')[0];
     setLogs(prev => [...prev, `[${timestamp}] ${message}`]);
     console.log(message);
-  };
+  }, []);
 
   // WebSocket接続
-  useEffect(() => {
-    const connectWebSocket = () => {
+  const connectWebSocket = useCallback(() => {
       const websocket = new WebSocket('ws://localhost:8000/ws');
       
       websocket.onopen = () => {
@@ -50,8 +49,9 @@ export default function WorkingConvertPage() {
       };
       
       setWs(websocket);
-    };
-    
+    }, [addLog]);
+
+  useEffect(() => {
     connectWebSocket();
     
     return () => {
@@ -59,7 +59,7 @@ export default function WorkingConvertPage() {
         ws.close();
       }
     };
-  }, []);
+  }, [connectWebSocket, ws]);
 
   const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     if (e.target.files && e.target.files[0]) {
@@ -126,13 +126,15 @@ export default function WorkingConvertPage() {
         addLog(`❌ エラー: ${errorText}`);
         setError(`変換エラー: ${response.status}`);
       }
-    } catch (err: any) {
-      addLog(`❌ 例外エラー: ${err.message}`);
-      addLog(`エラー詳細: ${err.stack}`);
-      setError(`エラー: ${err.message}`);
+    } catch (err: unknown) {
+      const errorMessage = err instanceof Error ? err.message : 'Unknown error';
+      const errorStack = err instanceof Error ? err.stack : 'No stack trace';
+      addLog(`❌ 例外エラー: ${errorMessage}`);
+      addLog(`エラー詳細: ${errorStack}`);
+      setError(`エラー: ${errorMessage}`);
       
       // ネットワークエラーの詳細
-      if (err.message.includes('fetch')) {
+      if (errorMessage.includes('fetch')) {
         addLog('⚠️ ネットワークエラーの可能性:');
         addLog('1. バックエンドが起動していない');
         addLog('2. CORSでブロックされている');
@@ -165,8 +167,9 @@ export default function WorkingConvertPage() {
       } else {
         addLog(`❌ ダウンロード失敗: ${response.status}`);
       }
-    } catch (err: any) {
-      addLog(`❌ ダウンロードエラー: ${err.message}`);
+    } catch (err: unknown) {
+      const errorMessage = err instanceof Error ? err.message : 'Unknown error';
+      addLog(`❌ ダウンロードエラー: ${errorMessage}`);
     }
   };
 

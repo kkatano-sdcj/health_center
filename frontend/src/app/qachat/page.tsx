@@ -202,7 +202,7 @@ export default function QAChatPage() {
     }
   };
 
-  const generateRelatedQuestions = (_question: string): string[] => {
+  const generateRelatedQuestions = (): string[] => {
     const related = [
       "この機能の詳細設定について教えてください",
       "トラブルシューティングガイドはありますか？",

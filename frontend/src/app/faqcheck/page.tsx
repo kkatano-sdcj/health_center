@@ -8,7 +8,6 @@ import {
   XCircle,
   AlertCircle,
   RefreshCw,
-  Filter,
   Calendar,
   FileText,
   BarChart3,
@@ -16,8 +15,7 @@ import {
   Clock,
   Database,
   CheckSquare,
-  Square,
-  ArrowUpDown
+  Square
 } from "lucide-react";
 
 interface FAQ {

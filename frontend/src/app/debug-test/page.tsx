@@ -6,7 +6,7 @@ export default function DebugTestPage() {
   const [logs, setLogs] = useState<string[]>([]);
   const [converting, setConverting] = useState(false);
 
-  const addLog = (message: string, data?: any) => {
+  const addLog = (message: string, data?: unknown) => {
     const timestamp = new Date().toISOString();
     const logMessage = data ? `${message}: ${JSON.stringify(data)}` : message;
     setLogs(prev => [...prev, `[${timestamp}] ${logMessage}`]);
@@ -33,7 +33,7 @@ export default function DebugTestPage() {
       formData.append('use_api_enhancement', 'false');
       
       // Log FormData contents
-      const formDataEntries: any = {};
+      const formDataEntries: Record<string, string> = {};
       formData.forEach((value, key) => {
         formDataEntries[key] = value instanceof File ? `File: ${value.name}` : value;
       });

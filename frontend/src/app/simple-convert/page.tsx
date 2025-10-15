@@ -6,7 +6,7 @@ import { useWebSocket } from '@/hooks/useWebSocket';
 export default function SimpleConvertPage() {
   const [file, setFile] = useState<File | null>(null);
   const [converting, setConverting] = useState(false);
-  const [result, setResult] = useState<any>(null);
+  const [result, setResult] = useState<Record<string, unknown> | null>(null);
   const [error, setError] = useState<string>('');
   const { progressData, isConnected } = useWebSocket();
 
