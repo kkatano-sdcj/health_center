@@ -46,7 +46,7 @@ export async function deleteFile(filename: string): Promise<void> {
   }
 }
 
-export async function batchDeleteFiles(filenames: string[]): Promise<any> {
+export async function batchDeleteFiles(filenames: string[]): Promise<{ deleted_count: number; errors: string[] }> {
   const response = await fetch(`${API_BASE}/files/batch-delete`, {
     method: 'POST',
     headers: {

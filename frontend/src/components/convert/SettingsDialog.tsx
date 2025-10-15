@@ -39,7 +39,7 @@ const SettingsDialog: React.FC<SettingsDialogProps> = ({ onClose }) => {
         success: result.is_valid,
         message: result.is_valid ? '接続成功！' : result.error_message || '接続に失敗しました'
       });
-    } catch (error) {
+    } catch {
       setTestResult({ success: false, message: 'テスト中にエラーが発生しました' });
     } finally {
       setIsTesting(false);
@@ -59,7 +59,7 @@ const SettingsDialog: React.FC<SettingsDialogProps> = ({ onClose }) => {
       setTimeout(() => {
         onClose();
       }, 1500);
-    } catch (error) {
+    } catch {
       setTestResult({ success: false, message: '保存に失敗しました' });
     } finally {
       setIsSaving(false);

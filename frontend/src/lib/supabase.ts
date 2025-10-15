@@ -32,7 +32,7 @@ export interface FAQ {
   question_date?: string;
   response_date?: string;
   resolved_date?: string;
-  metadata?: any;
+  metadata?: Record<string, unknown>;
   search_vector?: string;
   created_at: string;
   updated_at: string;

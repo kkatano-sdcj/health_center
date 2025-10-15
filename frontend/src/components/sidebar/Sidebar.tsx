@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useState, useEffect } from "react";
+import React, { useState, useEffect, useCallback } from "react";
 import { FileText, Code, Book, Save, HelpCircle, Database, Globe, MessageSquare, Plus, Trash2 } from "lucide-react";
 
 interface ThreadItem {
@@ -79,9 +79,9 @@ export const Sidebar: React.FC<SidebarProps> = ({
     // Refresh threads every 30 seconds
     const interval = setInterval(fetchThreads, 30000);
     return () => clearInterval(interval);
-  }, []);
+  }, [fetchThreads]);
   
-  const fetchThreads = async () => {
+  const fetchThreads = useCallback(async () => {
     try {
       const response = await fetch('http://localhost:8000/api/aichat/threads');
       if (response.ok) {
@@ -89,7 +89,14 @@ export const Sidebar: React.FC<SidebarProps> = ({
         console.log('Fetched threads:', data);
         // Transform the data to match ThreadItem format
         if (data && data.length > 0) {
-          const transformedThreads: ThreadItem[] = data.map((thread: any) => ({
+          const transformedThreads: ThreadItem[] = data.map((thread: {
+            thread_id?: string;
+            id?: string;
+            title?: string;
+            updated_at?: string;
+            created_at?: string;
+            message_count?: number;
+          }) => ({
             id: thread.thread_id || thread.id,
             title: thread.title || '新しい会話',
             timestamp: formatTimestamp(thread.updated_at || thread.created_at),
@@ -104,7 +111,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
       console.error('Failed to fetch threads:', error);
       setThreads([]);
     }
-  };
+  }, []);
   
   const formatTimestamp = (timestamp: string): string => {
     if (!timestamp) return '未知';

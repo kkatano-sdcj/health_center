@@ -11,7 +11,7 @@ export interface ConvertedFile {
 export interface FileContent {
   filename: string;
   content: string;
-  metadata: any;
+  metadata: Record<string, unknown>;
   modified: string;
 }
 
@@ -42,7 +42,7 @@ export async function deleteFile(filename: string): Promise<void> {
   }
 }
 
-export async function batchDeleteFiles(filenames: string[]): Promise<any> {
+export async function batchDeleteFiles(filenames: string[]): Promise<{ deleted_count: number; errors: string[] }> {
   const response = await fetch(`${API_BASE}/files/batch-delete`, {
     method: 'POST',
     headers: {
@@ -56,7 +56,7 @@ export async function batchDeleteFiles(filenames: string[]): Promise<any> {
   return response.json();
 }
 
-export async function addToVectorDB(filenames: string[]): Promise<any> {
+export async function addToVectorDB(filenames: string[]): Promise<{ success: boolean; added_count: number; errors: string[] }> {
   const response = await fetch(`${API_BASE}/vectordb/add`, {
     method: 'POST',
     headers: {
