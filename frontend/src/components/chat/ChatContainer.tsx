@@ -37,20 +37,11 @@ export const ChatContainer: React.FC<ChatContainerProps> = ({
   const [abortController, setAbortController] = useState<AbortController | null>(null);
   const messagesEndRef = useRef<HTMLDivElement>(null);
 
-  // Update conversation ID when thread changes
-  useEffect(() => {
-    if (threadId !== conversationId) {
-      setConversationId(threadId || null);
-      setMessages([]);
-      loadThreadMessages(threadId);
-    }
-  }, [threadId, conversationId, loadThreadMessages]);
-
   const loadThreadMessages = useCallback(async (threadId?: string) => {
     if (!threadId) return;
     
     try {
-      const response = await fetch(`http://localhost:8000/api/aichat/threads/${threadId}`);
+      const response = await fetch(`/api/aichat/threads/${threadId}`);
       if (response.ok) {
         const data = await response.json();
         
@@ -154,6 +145,15 @@ export const ChatContainer: React.FC<ChatContainerProps> = ({
     }
   }, []);
 
+  // Update conversation ID when thread changes
+  useEffect(() => {
+    if (threadId !== conversationId) {
+      setConversationId(threadId || null);
+      setMessages([]);
+      loadThreadMessages(threadId);
+    }
+  }, [threadId, conversationId, loadThreadMessages]);
+
   const scrollToBottom = () => {
     messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
   };
@@ -183,7 +183,7 @@ export const ChatContainer: React.FC<ChatContainerProps> = ({
 
     try {
       // Call the RAG chat API
-      const response = await fetch('http://localhost:8000/api/aichat/chat', {
+      const response = await fetch('/api/aichat/chat', {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
@@ -313,7 +313,7 @@ export const ChatContainer: React.FC<ChatContainerProps> = ({
     if (conversationId) {
       // Clear thread on server
       try {
-        await fetch(`http://localhost:8000/api/aichat/threads/${conversationId}`, {
+        await fetch(`/api/aichat/threads/${conversationId}`, {
           method: 'DELETE'
         });
       } catch (error) {

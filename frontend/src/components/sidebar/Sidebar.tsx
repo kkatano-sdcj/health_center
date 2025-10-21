@@ -72,18 +72,10 @@ export const Sidebar: React.FC<SidebarProps> = ({
 }) => {
   const [threads, setThreads] = useState<ThreadItem[]>(sampleThreads);
   const [isSaving, setIsSaving] = useState(false);
-  
-  // APIからスレッド一覧を取得
-  useEffect(() => {
-    fetchThreads();
-    // Refresh threads every 30 seconds
-    const interval = setInterval(fetchThreads, 30000);
-    return () => clearInterval(interval);
-  }, [fetchThreads]);
-  
+
   const fetchThreads = useCallback(async () => {
     try {
-      const response = await fetch('http://localhost:8000/api/aichat/threads');
+      const response = await fetch('/api/aichat/threads');
       if (response.ok) {
         const data = await response.json();
         console.log('Fetched threads:', data);
@@ -113,6 +105,14 @@ export const Sidebar: React.FC<SidebarProps> = ({
     }
   }, []);
   
+  // APIからスレッド一覧を取得
+  useEffect(() => {
+    fetchThreads();
+    // Refresh threads every 30 seconds
+    const interval = setInterval(fetchThreads, 30000);
+    return () => clearInterval(interval);
+  }, [fetchThreads]);
+  
   const formatTimestamp = (timestamp: string): string => {
     if (!timestamp) return '未知';
     
@@ -132,7 +132,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
   
   const handleDeleteThread = async (threadId: string) => {
     try {
-      const response = await fetch(`http://localhost:8000/api/aichat/threads/${threadId}`, {
+      const response = await fetch(`/api/aichat/threads/${threadId}`, {
         method: 'DELETE'
       });
       if (response.ok) {
@@ -153,7 +153,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
     setIsSaving(true);
     try {
       // Get conversation summary and save as note via API
-      const summaryResponse = await fetch(`http://localhost:8000/api/aichat/threads/${currentThreadId}/summarize?save_as_note=true`, {
+      const summaryResponse = await fetch(`/api/aichat/threads/${currentThreadId}/summarize?save_as_note=true`, {
         method: 'POST'
       });
       

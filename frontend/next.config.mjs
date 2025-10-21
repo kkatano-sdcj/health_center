@@ -1,14 +1,21 @@
 /** @type {import('next').NextConfig} */
 const nextConfig = {
   async rewrites() {
+    // Docker環境ではbackend、ローカル開発ではlocalhostを使用
+    const apiUrl = process.env.INTERNAL_API_URL || 'http://backend:8000';
+
     return [
       {
         source: '/api/v1/:path*',
-        destination: 'http://localhost:8000/api/v1/:path*',
+        destination: `${apiUrl}/api/v1/:path*`,
+      },
+      {
+        source: '/api/aichat/:path*',
+        destination: `${apiUrl}/api/aichat/:path*`,
       },
       {
         source: '/ws',
-        destination: 'http://localhost:8000/ws',
+        destination: `${apiUrl}/ws`,
       },
     ];
   },

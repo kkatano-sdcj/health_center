@@ -31,7 +31,7 @@ export default function AIChatPage() {
 
   const handleNewThread = async () => {
     try {
-      const response = await fetch('http://localhost:8000/api/aichat/threads', {
+      const response = await fetch('/api/aichat/threads', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({})
